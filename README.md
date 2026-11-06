@@ -31,6 +31,10 @@ All on QEMU 8.2.2. None of this describes real hardware.
 - Under `-icount`, on one hart with the others asleep, `minstret` was within 16 instructions of the true count on runs
   of 35-48 million instructions.
 - `make test`: 8000 records from 4 harts validated with 0 drops, in both timing modes.
+- With sampling off, DTLB read and write misses separate loads from stores with no crossover. With sampling on, the
+  ISR's own accesses add misses (94,536 read misses on the store hart under `-icount`, about 0.1% of its write misses).
+  The CI gate is therefore measured with sampling disabled. The extra misses are overhead, reported in the Day 6 sweep.
+- ITLB miss reached about 26,000 on the load and store harts with sampling on. That is not evidence of code footprint.
 
 ## Layout
 

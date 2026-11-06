@@ -11,7 +11,7 @@ One record per tick per U54: 64 bytes, aligned to 64, little-endian.
 | 0 | 4 | `seq` | Counts every sample taken, including dropped ones |
 | 4 | 1 | `hart` | Hart that took the sample |
 | 5 | 1 | `flags` | Reserved, 0 |
-| 6 | 2 | `check` | `sample_checksum()` of everything else |
+| 6 | 2 | `check` | Test instrumentation: `sample_checksum()` if built with `SAMPLE_CHECKSUM=1`, otherwise 0 |
 | 8 | 8 | `mtime` | Sample time on the clock shared by all harts, read in the ISR |
 | 16 | 8 | `mcycle` | |
 | 24 | 8 | `minstret` | |
@@ -34,8 +34,11 @@ Encoded size on the wire: not measured.
 
 IPC is flat on QEMU, so there is no IPC gate (`docs/ENGINEERING_LOG.md`, Day 2).
 
-- **Gate, under `-icount`:** `minstret` for a fixed amount of work on one U54 with the E51 asleep, plus DTLB read and
-  write misses per thousand instructions. Plain threshold against a stored baseline, default 3%.
+- **Gate, under `-icount`:** `minstret` for a fixed amount of work on one U54 with the E51 asleep and **sampling
+  disabled**, plus DTLB read and write misses per thousand instructions. Plain threshold against a stored baseline,
+  default 3%.
+- **Why sampling is off:** with it on, the ISR's own accesses add DTLB misses (94,536 read misses on the store hart).
+  That extra is overhead, reported in the Day 6 sweep. It must not be mixed into a workload metric.
 - **Why no statistical test there:** repeat `-icount` runs were identical, so variance is zero and a rank test has
   nothing to work with.
 - **What it cannot see:** stalls. It catches added instructions and added page-level memory traffic.
@@ -60,6 +63,29 @@ memory of the FU540 manual suggests, to be verified.
 | Caches | Not modelled | Real, and affect timing |
 | UART baud rate | Divisor is not implemented, per the note in `uart.c`; not measured here | Must be programmed; 115200 baud carries 11.52 KB/s |
 | L2-LIM | 512,000 bytes written and read back correctly (1 MiB reserved) | Size and behaviour not measured |
+
+## Ring memory ordering: what the tests cannot prove
+
+**Limitation.** Host-side stress tests and ThreadSanitizer cannot prove that the ring's acquire/release is sufficient on
+RISC-V. An x86 host has stronger memory ordering than RISC-V: it does not reorder most of what RISC-V may, so a missing
+barrier can pass every run. This project's current build host is arm64, which is weaker than x86 but is still not
+RISC-V. ThreadSanitizer checks the program against the C11 model on the host it runs on. It says nothing about the
+machine code on a RISC-V core. QEMU does not reproduce a RISC-V core's reordering either. Passing tests are evidence of
+no bug found, so the design rests on the argument below, which is expanded in `docs/ring.md`.
+
+**The argument in words.**
+
+1. Each index has one writer: only the producer writes `head`, only the consumer writes `tail`.
+2. The producer fills a slot first, then publishes it with a store-release of `head`. Release means no earlier write
+   may become visible after that store.
+3. The consumer load-acquires `head`. Acquire means no later read may happen before that load. So if it sees the new
+   `head`, it must also see the finished slot.
+4. The same pair runs the other way. The consumer finishes reading a slot, then store-releases `tail`. The producer
+   load-acquires `tail` before reusing that slot, so it cannot overwrite a record still being read.
+5. Neither side ever waits for the other, and neither writes the other's index, so no atomic read-modify-write is needed.
+
+The compiler turns these into RISC-V `fence` instructions or their equivalents. Checking that output is a disassembly
+review, recorded in `docs/ring.md`.
 
 ## Porting notes
 
