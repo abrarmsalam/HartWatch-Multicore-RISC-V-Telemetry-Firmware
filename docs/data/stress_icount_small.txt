@@ -1,0 +1,10 @@
+
+=== HartWatch ring stress: target 20000 verified records, 64 slots ===
+ hart  pacing   attempts   received    dropped   seq_gaps   bad  backwards  max_occ       laps  near_empty%
+    1       0   56170353       5056   56165297   56165297     0          0       64         79          99
+    2       0   49620353       5056   49615297   49615297     0          0       64         79          99
+    3     100    2183816       5056    2178760    2178760     0          0       64         79          99
+    4     400     499189       5056     494133     494133     0          0       64         79          99
+records verified: 20224, problems: 0
+STRESS PASSED
+qemu-system-riscv64: warning: icount sleep disabled and no active timers

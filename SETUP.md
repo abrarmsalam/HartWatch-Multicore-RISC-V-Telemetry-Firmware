@@ -58,8 +58,10 @@ PASS
 | --- | --- |
 | `make` | Build `build/hartwatch.elf` |
 | `make run` | Boot it in QEMU and watch the console |
-| `make test` | Run the host unit tests, then boot it with a timeout and print PASS/FAIL |
-| `make host-test` | Run only the host unit tests |
+| `make test` | Run the host tests, boot it with a timeout, then decode and check the telemetry |
+| `make host-test` | Run only the host tests (C, pytest, ThreadSanitizer) |
+| `make test-drops` | Boot a build that overflows its rings and check every drop is accounted for |
+| `make stress` | Stress the rings on RISC-V firmware (about 2 minutes) |
 | `make probe` | Run the counter probe (add `QEMU_TIMING=` to run without `-icount`) |
 | `make debug` then `make gdb` (second terminal) | Boot paused; attach GDB to hart 0 |
 | `make disasm` | Write `build/hartwatch.lst`, the machine code interleaved with your C |

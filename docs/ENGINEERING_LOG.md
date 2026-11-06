@@ -210,3 +210,78 @@ Bugs were planted on purpose in a throwaway copy:
   reporting traps per CSR.
 - First probe run: selectors reused one counter and contaminated later rows (see Finding 3). Fixed with one counter each.
 - `make clean` deleted probe logs kept in `build/`. Runs were repeated and raw output now lives in `docs/data/`.
+
+---
+
+## Day 3
+
+**Environment.** As Day 2. `make stress` and no-icount runs use QEMU's multi-threaded mode on the arm64 host.
+
+**Order of work.** `docs/ring.md` was written and committed before any ring code.
+
+### Finding 1 -- the pipeline works end to end
+
+- **Observed.** `make test` under `-icount`: 8000 records went through the rings, encoding, UART1 and the Python decoder.
+  0 drops and 0 damaged frames. The digest of decoded records matched the E51's digest of the raw records on all 4 harts.
+  The same held in the no-icount run. Wall time for `make test` is 26.7 s against a 120 s timeout.
+- **Drops.** `make test-drops` (32-slot rings, 100 ms drain) dropped 1359-1360 of 2000 samples per hart. On every hart,
+  `drained + dropped == attempts`, and `seq` gaps equal the drop counter reported in the frames.
+- **Tick gaps under `-icount` widened again**, from 873-1098 us to 777-1223 us, now that the E51 runs real work. This fits
+  Day 2's scheduling explanation, but this specific change was not tested.
+
+### Finding 2 -- ring tests: logic is well covered, ordering on RISC-V is not
+
+- **Stress results (no icount).** Full-ring regime: 3 runs, 60,000,813 records verified, 0 bad, rings at capacity. Near-empty
+  regime: 3 runs, 15,000,102 verified, 0 bad, rings holding 0-1 records at about 99% of polls. In every run, `seq` gaps
+  equalled the drop counter on every hart. Hart 2 passed 2^32 attempts in all three full-ring runs, so `seq` really wrapped.
+- **Planted bugs.** ThreadSanitizer caught all four removed barriers. The RISC-V stress test caught the logic bug
+  (commit before fill) and **none** of the four removed barriers, in either regime.
+- **Interpretation.** QEMU did not produce the reordering a RISC-V core may. A stress pass is evidence about logic only. Full
+  table in `docs/ring.md`.
+- **Decision.** The ordering claim rests on the written argument and the disassembly review, and the docs say so.
+- **Not done.** Real hardware, or a tool that models the RISC-V memory model.
+- **Observed but not explained.** Hart 2 made about 6 times as many attempts as hart 1 with identical code and pacing.
+  Near-empty runs still reached 64 records occasionally. **Hypothesis (not tested):** host threads being paused.
+
+### Finding 3 -- measured wire size
+
+- **Observed.** 15.84 bytes/sample at 1 kHz under `-icount`, against 64 raw. 63,384 bytes per virtual second for 4 harts.
+  Full table in `docs/DESIGN.md`.
+- **Surprise.** Bytes/sample falls as the sample rate rises under `-icount` (18.87, 15.84, 13.88). It is also lower
+  without `-icount` at 1 kHz (12.78). **Hypothesis (not tested):** smaller deltas between samples, and at 100 Hz, the fixed
+  cost of the last partial frames and END frames spread over only 800 samples.
+- **Decision.** Self-contained frames at 16 samples, based on the measured 4/16/64 comparison.
+- **Limit.** A real 115200 baud UART carries 11.52 KB/s (calculated). The 100 Hz rate fits. The 1 kHz rate does not.
+
+### Finding 4 -- two runs did not give results
+
+- **20 kHz without `-icount` failed** the firmware's timer check (mean rate off by more than 5%). Wire rate there is not
+  measured. Tick delivery on the host clock could not hold 20 kHz here.
+- **Stress under `-icount` is very slow.** A 2,000,000-record target hit the 600 s timeout. A 20,000-record target passed in
+  101 s, about 200 records/s. It is slow, not hung. It has little value anyway, since harts take turns.
+
+### Do the tests catch bugs?
+
+Planted in a throwaway copy, beyond the ring table in `docs/ring.md`:
+
+| Planted bug | Caught by |
+| --- | --- |
+| END frame reports wrong attempts | Decoder |
+| Drain skips consuming a record | Firmware self-test |
+| Encoder forgets to update `prev` | Decoder |
+| `mcycle` and `minstret` swapped on the wire | Decoder digest only |
+| `frame_seq` not incremented | Decoder |
+| Frame deleted from a capture | Decoder |
+| One bit flipped in a capture | Decoder |
+
+### Defects
+
+- First stress test verified only 406,779 records: producers hit a full ring so cheaply that they finished quickly. Fixed by
+  running until a target number of records is verified.
+- Stress failed 3 times at 20M: hart 2 passed 2^32 attempts and the 32-bit `seq` wrap looked like going backwards. Every
+  record was correct. The bug was in the test, and `host/check_stream.py` had the same one. Both now use wrap-safe differences.
+- The stress regime first kept every ring full, so the near-empty case was hardly tested. `max_occ` exposed it. Added
+  `STRESS_PACE`.
+- `python3 -I` broke the decoder's import in `make test`. Removed.
+- A TSan mutation run took over 4 minutes reporting races. Added `halt_on_error` and a time limit.
+- A `-Wmaybe-uninitialized` warning in `check_samples` appeared with the ring. Fixed by initialising the variables.

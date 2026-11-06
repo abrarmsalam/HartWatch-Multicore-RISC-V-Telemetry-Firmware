@@ -12,7 +12,7 @@ The E51 is a small monitor core that runs no application work. HartWatch keeps t
 
 - **U54 harts:** a timer interrupt reads the counters and `mepc` and writes one 64-byte record into a private ring buffer.
 - **E51 hart:** drains the rings, encodes and frames the data, and sends it out over a UART.
-- **Host (planned):** decodes the stream and maps `mepc` to function names.
+- **Host:** decodes the stream, with `mepc` to function name mapping planned.
 
 Rings are single-producer/single-consumer with **drop-on-full**: the sampled core never blocks, and dropped samples are counted and reported rather than hidden.
 
@@ -47,7 +47,7 @@ flowchart LR
     DEC --> GATE["CI regression gate"]
 
     classDef planned stroke-dasharray: 5 5;
-    class DEC,SYM,DB,API,DASH,GATE planned;
+    class SYM,DB,API,DASH,GATE planned;
 ```
 
 Dashed boxes are **planned**; see [Status](#status).
@@ -78,8 +78,8 @@ Raw ring rate for 4 harts (calculated, not measured): 25.6 KB/s at 100 Hz, 256 K
 | --- | --- | --- |
 | 1 | Toolchain, multi-hart boot, UART, 1 kHz timer interrupts | done |
 | 2 | Counter investigation, `hpm_backend`, sampling ISR, host unit tests | done |
-| 3 | Lock-free rings, E51 drain, encoding and framing, host decoder | next |
-| 4 | Collector, schema, symbolization | planned |
+| 3 | Lock-free rings, E51 drain, encoding and framing, host decoder | done, awaiting review |
+| 4 | Collector, schema, symbolization | next |
 | 5 | API, tests, dashboard, containers | planned |
 | 6 | Benchmarks, overhead sweep, CI gate | planned |
 | 7 | Design doc, demo, v1.0 | planned |
@@ -91,7 +91,9 @@ All results are from QEMU 8.2.2. None of them describe real hardware. `-icount` 
 - **Timer ticks:** under `-icount`, gaps are 999-1001 us when few harts are busy. With busy harts, ticks arrive late (never early), by an amount that grows with the number of busy harts: worst lateness was 1, 41, 73 and 98 us with 1, 2, 3 and 4 busy harts at 1 kHz. QEMU runs harts round-robin, and a hart can only take its interrupt on its own turn. Workload and ISR length made no difference. The exact 98 us is not fully explained. Without `-icount`, tick spacing varied by milliseconds from run to run.
 - **IPC is flat on QEMU:** 1.000 for every workload under `-icount`, 0.994-1.000 without. An IPC-based regression gate cannot work here, so the gate uses other metrics (below).
 - **`minstret` is exact only in one setup:** under `-icount`, on one hart with the others asleep, it was within 16 instructions of the true count on 35-48 million. With other harts busy it reads global virtual time and is not per-hart.
-- **Sampling works:** `make test` validated 8000 records from 4 harts with 0 drops, in both timing modes.
+- **The pipeline works end to end:** in `make test`, 8000 records from 4 harts pass through the rings, encoding and UART1 to the Python decoder, with 0 drops, in both timing modes. A digest of the raw records matches the decoded ones. A separate build overflows its rings, and every drop is accounted for.
+- **Wire size:** 15.84 bytes/sample against 64 raw, and 63,384 bytes per virtual second for 4 harts at 1 kHz under `-icount`. See [`docs/DESIGN.md`](docs/DESIGN.md) for other rates. QEMU's UART has no baud limit. A real 115200 baud UART carries 11.52 KB/s (calculated).
+- **Ring stress:** 75,000,915 records verified on RISC-V firmware under QEMU with 0 bad, and `seq` gaps equal to the drop counter. **This does not prove memory ordering.** With any ring barrier removed, this test still passed, while ThreadSanitizer on the host caught all four. See [`docs/ring.md`](docs/ring.md).
 - **With sampling off, DTLB misses separate workloads cleanly:**
 
 | Workload | DTLB read miss | DTLB write miss |
@@ -140,7 +142,7 @@ docker build -f Dockerfile.dev -t hartwatch-dev .
 docker run --rm -v "$PWD":/work hartwatch-dev make test
 ```
 
-Other commands: `make run`, `make debug` + `make gdb`, `make disasm`, `make dtb`, `make probe`, `make tickgap`. See [SETUP.md](SETUP.md) for details.
+Other commands: `make run`, `make debug` + `make gdb`, `make disasm`, `make dtb`, `make test-drops`, `make stress`, `make probe`, `make tickgap`. See [SETUP.md](SETUP.md) for details.
 
 **Debugging note:** GDB controls hart 0 only with this QEMU; inspect the U54s through the QEMU monitor (`cpu N`, `info registers`).
 
@@ -151,9 +153,9 @@ fw/boot.S        first instructions every hart runs; trap entry
 fw/linker.ld     memory layout
 fw/src/          C firmware and workloads
 fw/src/hpm/      counter backends, chosen at build time
-fw/probe/        experiment images (make probe, make tickgap)
+fw/probe/        experiment images (make probe, make tickgap, make stress)
 fw/tests/        host unit tests (make host-test)
-host/            decoder and collector (planned)
+host/            decoder and stream checker (collector planned)
 scripts/         environment check, test runner, experiment scripts
 docs/            walkthroughs, module notes, design, engineering log
 docs/data/       raw output behind the measured numbers
@@ -169,4 +171,5 @@ No custom RTOS, no Linux/OpenSBI port, no hand-rolled storage engine, no authent
 - [`docs/DAY1.md`](docs/DAY1.md) -- bring-up explained from zero
 - [`docs/ENGINEERING_LOG.md`](docs/ENGINEERING_LOG.md) -- what was observed, tested and decided
 - [`docs/DESIGN.md`](docs/DESIGN.md) -- record format, CI gate, QEMU-versus-silicon table, ring ordering argument
-- [`docs/hpm_backend.md`](docs/hpm_backend.md), [`docs/sampler.md`](docs/sampler.md), [`docs/counter_probe.md`](docs/counter_probe.md) -- plain-language module notes
+- [`docs/ring.md`](docs/ring.md) -- ring invariants, the ordering argument, and what the tests can and cannot show
+- [`docs/hpm_backend.md`](docs/hpm_backend.md), [`docs/sampler.md`](docs/sampler.md), [`docs/wire.md`](docs/wire.md), [`docs/drain.md`](docs/drain.md), [`docs/decoder.md`](docs/decoder.md), [`docs/counter_probe.md`](docs/counter_probe.md) -- plain-language module notes

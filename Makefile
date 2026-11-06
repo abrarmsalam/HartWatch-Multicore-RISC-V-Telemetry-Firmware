@@ -66,7 +66,7 @@ QEMU_COMMON := -machine sifive_u -smp $(SMP) -m 256M -nographic -bios none -no-r
 QEMU_BASE  := $(QEMU_COMMON) $(QEMU_TIMING)
 QEMU_FLAGS := $(QEMU_BASE) -kernel $(ELF)
 
-.PHONY: all run test test-drops host-test debug gdb dtb disasm size clean probe tickgap stress
+.PHONY: all run test test-fw test-drops host-test debug gdb dtb disasm size clean probe tickgap stress
 all: $(ELF) size
 
 $(ELF): $(OBJS) fw/linker.ld
@@ -171,7 +171,10 @@ host-test:
 	    fw/tests/test_ring_tsan.c fw/src/sample.c -o $(BUILD)/test_ring_tsan
 	@$(BUILD)/test_ring_tsan 2000000 64
 
-test: host-test $(ELF)
+test: host-test test-fw
+
+# The firmware half of `make test`: boot, then check the telemetry stream.
+test-fw: $(ELF)
 	@TEST_TIMEOUT=$(TEST_TIMEOUT) scripts/run_test.sh $(ELF) "$(QEMU) $(QEMU_FLAGS)" $(BUILD)
 	@python3 host/check_stream.py $(TELEMETRY) $(CHECK_FLAGS)
 

@@ -1,0 +1,84 @@
+=== 100 Hz, -icount  [rc=0]
+    1      200        0      14        3446         17.23  1990006     1732
+    2      200        0      14        3475         17.38  1989024     1747
+    3      200        0      14        4086         20.43  1990000     2053
+    4      200        0      14        4086         20.43  1989520     2054
+ all       800  bytes 15093  bytes/sample 18.87  span_us 1992880  bytes/s 7573
+DECODER PASS
+   tick gaps h1 9280..10720 late 0
+   tick gaps h2 9023..10976 late 0
+   tick gaps h3 9424..10576 late 0
+   tick gaps h4 8721..11201 late 0
+=== 1 kHz, -icount  [rc=0]
+    1     2000        0     126       29215         14.61  1998928    14615
+    2     2000        0     126       29238         14.62  1998946    14627
+    3     2000        0     126       33075         16.54  1999001    16546
+    4     2000        0     126       35195         17.60  1998872    17607
+ all      8000  bytes 126723  bytes/sample 15.84  span_us 1999288  bytes/s 63384
+DECODER PASS
+   tick gaps h1 882..1118 late 0
+   tick gaps h2 902..1098 late 0
+   tick gaps h3 921..1079 late 0
+   tick gaps h4 777..1223 late 0
+=== 20 kHz, -icount  [rc=0]
+    1     2000        0     126       26563         13.28    99947   265771
+    2     2000        0     126       26596         13.30    99945   266106
+    3     2000        0     126       28900         14.45    99952   289139
+    4     2000        0     126       28943         14.47    99957   289555
+ all      8000  bytes 111002  bytes/sample 13.88  span_us 99978  bytes/s 1110264
+DECODER PASS
+   tick gaps h1 44..56 late 0
+   tick gaps h2 44..56 late 0
+   tick gaps h3 46..54 late 0
+   tick gaps h4 42..63 late 0
+=== 100 Hz, no icount  [rc=0]
+    1      200        0      14        3090         15.45  1987506     1555
+    2      200        0      14        3061         15.30  1987442     1540
+    3      200        0      14        3467         17.34  1987415     1744
+    4      200        0      14        3475         17.38  1987390     1749
+ all       800  bytes 13093  bytes/sample 16.37  span_us 1987508  bytes/s 6588
+DECODER PASS
+   tick gaps h1 2..43430 late 43
+   tick gaps h2 2..43446 late 43
+   tick gaps h3 2..43422 late 43
+   tick gaps h4 2..43411 late 42
+=== 1 kHz, no icount  [rc=0]
+    1     2000        0     126       25301         12.65  2005247    12617
+    2     2000        0     126       25105         12.55  2005176    12520
+    3     2000        0     126       25817         12.91  2005183    12875
+    4     2000        0     126       25979         12.99  2005064    12957
+ all      8000  bytes 102202  bytes/sample 12.78  span_us 2005247  bytes/s 50967
+DECODER PASS
+   tick gaps h1 2..30863 late 154
+   tick gaps h2 2..33650 late 154
+   tick gaps h3 2..33453 late 153
+   tick gaps h4 2..38679 late 156
+=== 20 kHz, no icount  [rc=2]
+PANIC on hart 0: timer self-test failed: wrong tick count or mean rate off by more than 5%
+FAIL: firmware panicked
+   tick gaps h1 2..20997 late 173
+   tick gaps h2 2..12052 late 161
+   tick gaps h3 2..12437 late 184
+   tick gaps h4 2..20846 late 173
+=== 1 kHz, -icount, 4 samples/frame  [rc=0]
+    1     2000        0     501       37718         18.86  1998968    18869
+    2     2000        0     501       37077         18.54  1998902    18549
+    3     2000        0     501       42429         21.21  1999000    21225
+    4     2000        0     501       44584         22.29  1998872    22305
+ all      8000  bytes 161808  bytes/sample 20.23  span_us 1999288  bytes/s 80933
+DECODER PASS
+   tick gaps h1 882..1118 late 0
+   tick gaps h2 902..1098 late 0
+   tick gaps h3 921..1079 late 0
+   tick gaps h4 780..1220 late 0
+=== 1 kHz, -icount, 64 samples/frame  [rc=0]
+    1     2000        0      33       27200         13.60  1998928    13607
+    2     2000        0      33       27550         13.78  1998903    13783
+    3     2000        0      33       30807         15.40  1999001    15411
+    4     2000        0      33       32889         16.44  1998872    16454
+ all      8000  bytes 118446  bytes/sample 14.81  span_us 1999288  bytes/s 59244
+DECODER PASS
+   tick gaps h1 881..1118 late 0
+   tick gaps h2 902..1098 late 0
+   tick gaps h3 921..1078 late 0
+   tick gaps h4 750..1252 late 0

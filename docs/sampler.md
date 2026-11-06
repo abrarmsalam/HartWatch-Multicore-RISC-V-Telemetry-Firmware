@@ -6,13 +6,12 @@ On every timer tick, each U54 does this inside the interrupt:
 
 1. `timer_irq` reads the shared clock `mtime`.
 2. `sampler_tick` asks `hpm_backend` for a counter snapshot.
-3. `sample_log_record` fills one 64-byte `sample_t`, including `mepc`, the instruction that was interrupted.
+3. `sampler_tick` fills one 64-byte `sample_t` in the ring, including `mepc`, the instruction that was interrupted.
 
-`sample.c` builds and checks records. `sampler.c` decides where they go. The E51 has a timer too, but it only uses it
-to wake up and it does not sample.
+`sample.c` builds and checks records. `sampler.c` puts them in the hart's ring (`docs/ring.md`). The E51 has a timer too,
+but it only uses it to wake up and it does not sample.
 
-Records go into a plain per-hart log in L2-LIM: 4096 slots of 64 bytes, 256 KiB per hart, 1 MiB in total. This log is
-temporary. Day 3 replaces it with the single-producer/single-consumer ring.
+Rings live in L2-LIM: 4096 slots of 64 bytes, 256 KiB per hart, about 1 MiB in total.
 
 ## Why this design
 
@@ -30,8 +29,6 @@ temporary. Day 3 replaces it with the single-producer/single-consumer ring.
 
 ## How it is tested
 
-- `make host-test`: built twice, with and without `SAMPLE_CHECKSUM`. With it there are 578 checks, including all 512 single-bit flips, a checksum value computed separately in Python,
-  a canary slot past the end of the log, and `seq` wrapping from `0xFFFFFFFF` to 0.
 - `make test`: four U54s run different workloads and hart 0 validates every record: checksum, hart, `seq` order, and
   that `mtime`, `mcycle` and `minstret` never go backwards. It also checks that `mepc` points into the right workload and
   that read and write misses follow the workload.
@@ -41,6 +38,6 @@ temporary. Day 3 replaces it with the single-producer/single-consumer ring.
 
 - **The ISR gets too slow.** Each tick does a snapshot and 64 bytes of stores, plus a checksum in test builds. The cost
   is not measured yet. It is part of the Day 6 overhead sweep.
-- **Reading a record while it is being written.** Hart 0 only reads after `done` is set, so that cannot happen today.
-  Day 3's ring has to solve this properly with store-release and load-acquire.
-- **The log fills up.** After 4096 samples everything is dropped and counted. Day 3's drain fixes this.
+- **Reading a record while it is being written.** The ring's store-release and load-acquire prevent this. See
+  `docs/ring.md`.
+- **The ring fills up.** New samples are dropped and counted, and `seq` still advances, so the gap shows the loss.

@@ -12,8 +12,8 @@ The owner is a university student who will be asked about every part of this in 
 
 ## Current state
 
-Day 1 is done and lives in this repo: multi-hart boot (`fw/boot.S`), linker script, UART, `kprintf`, 1 kHz timer interrupts on harts 1-4, `make test`.
-Start from Day 2. Do not rewrite Day 1 unless something is broken; if so, say why.
+Days 1-3 are in this repo: multi-hart boot, 1 kHz sampling, SPSC rings, E51 drain, framed telemetry on UART1, host decoder, `make test`.
+Do not rewrite earlier work unless something is broken; if so, say why.
 
 ## Environment
 
@@ -33,6 +33,11 @@ Known limits found on Day 1:
 - With sampling ON, the crossover is no longer zero: the ISR's own accesses add DTLB misses (inferred, not isolated; e.g. 94,536 read misses on the store hart, about 0.1% of its write misses, under `-icount`). This extra is an overhead signal for the Day 6 sweep, not a workload metric.
 - ITLB miss is unproven. It reached about 26,000 on the load and store harts with sampling on, but that is not evidence of code footprint: none of these workloads has a large code footprint.
 - Tick lateness under `-icount` comes from QEMU's round-robin scheduling, not from the host, the workload or the ISR. See the Day 2 log.
+
+## Day 3 findings (measured)
+
+- Wire size: 15.84 bytes/sample and 63,384 bytes per virtual second for 4 harts at 1 kHz under `-icount`. QEMU's UART has no baud limit.
+- Removing any ring barrier was caught by ThreadSanitizer but NOT by the RISC-V stress test under QEMU. A stress pass is evidence about logic only, never ordering.
 
 ## Hard rules (read these first)
 

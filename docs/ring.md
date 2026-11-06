@@ -94,6 +94,41 @@ RV64 performs as one access. A reader never sees half of a new value.
 - **Caches on real hardware.** This argument assumes coherent memory. QEMU has no caches. Whether L2-LIM is coherent
   and cached in the way this needs on the FU540 must be checked against the manual. Not verified.
 
+## The compiled barriers
+
+Checked by reading the disassembly (GCC 13.2.0, `-O2`). This shows the barriers exist. It does not prove they are enough:
+that is the argument above.
+
+| Source | RISC-V code in the firmware |
+| --- | --- |
+| Load-acquire (`tail`, `head`) | `ld`, then a full `fence` |
+| Store-release of `head` in `sampler_tick` | `fence iorw,ow`, then `amoswap.d zero, ...` |
+
+`sampler_tick` and `send_samples` were read. GCC used an atomic swap, not a plain store, for that release: this document
+says "store", and it is at least as strong.
+
 ## What the tests can and cannot show
 
-Filled in once the tests exist.
+Raw results: `docs/data/ring_mutations.txt`, `docs/data/stress_mutations.txt`, `docs/data/stress_*.txt`.
+
+| Planted bug | ThreadSanitizer (host) | RISC-V stress under QEMU, both regimes |
+| --- | --- | --- |
+| None (control) | clean | passed |
+| Commit before filling the slot | not tried | **caught** (253 bad records near empty, 1 when full) |
+| `ring_commit` release to relaxed | **caught** | **not caught** |
+| `ring_peek` acquire to relaxed | **caught** | **not caught** |
+| `ring_consume` release to relaxed | **caught** | **not caught** |
+| `ring_reserve` acquire to relaxed | **caught** | **not caught** |
+| Full check off by one | **caught** (also a unit test) | not tried |
+
+**ThreadSanitizer shows** that the C code has no unordered access pair under the C11 model, on the paths the run reached.
+It does not look at RISC-V machine code at all.
+
+**The RISC-V stress test shows** that the logic works: 75,000,915 records verified with no bad record, `seq` gaps equal to
+the drop counter, across 32-bit `seq` wraps, on actual firmware with real host parallelism. **It cannot show that the
+barriers are sufficient.** Removing any one of them still passed every run. QEMU did not produce the reordering a RISC-V
+core is allowed to, so a pass says nothing about ordering on silicon.
+
+**Neither test proves correctness.** The ordering claim rests on the written argument above, checked against the
+disassembly. Running this on real RISC-V hardware, or checking it with a tool that models the RISC-V memory model, has not
+been done.
