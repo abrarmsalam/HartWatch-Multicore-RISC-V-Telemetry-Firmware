@@ -55,11 +55,12 @@ OBJS   := $(BUILD)/boot.o $(BUILD)/workloads.o $(BUILD)/hpm_$(HPM_BACKEND).o \
 # depending on how busy your computer is. Use `make run QEMU_TIMING=` to turn it off.
 QEMU_TIMING ?= -icount shift=0,sleep=off
 QEMU_EXTRA  ?=
-QEMU_BASE  := -machine sifive_u -smp 5 -m 256M -nographic -bios none -no-reboot \
+SMP ?= 5
+QEMU_BASE  := -machine sifive_u -smp $(SMP) -m 256M -nographic -bios none -no-reboot \
               $(QEMU_TIMING) $(QEMU_EXTRA)
 QEMU_FLAGS := $(QEMU_BASE) -kernel $(ELF)
 
-.PHONY: all run test host-test debug gdb dtb disasm size clean probe
+.PHONY: all run test host-test debug gdb dtb disasm size clean probe tickgap
 all: $(ELF) size
 
 $(ELF): $(OBJS) fw/linker.ld
@@ -93,6 +94,16 @@ $(PROBE_ELF): $(PROBE_OBJS) fw/linker.ld
 $(BUILD)/probe_main.o: fw/probe/probe.c
 	@mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
+
+# Tick-gap experiment: GAP="-DGAP_BUSY=0x1e ..." picks the variant (see fw/probe/tickgap.c).
+GAP ?=
+TICKGAP_ELF := $(BUILD)/tickgap.elf
+
+tickgap: $(BUILD)/boot.o $(BUILD)/workloads.o $(BUILD)/hpm_$(HPM_BACKEND).o $(BUILD)/kprintf.o \
+         $(BUILD)/power.o $(BUILD)/uart.o $(BUILD)/timer.o $(BUILD)/trap.o $(BUILD)/sample.o
+	@$(CC) $(CFLAGS) $(GAP) -c fw/probe/tickgap.c -o $(BUILD)/tickgap.o
+	@$(CC) $(LDFLAGS) $^ $(BUILD)/tickgap.o -lgcc -o $(TICKGAP_ELF)
+	@EXPECT="GAP DONE" TEST_TIMEOUT=120 scripts/run_test.sh $(TICKGAP_ELF) "$(QEMU) $(QEMU_BASE) -kernel $(TICKGAP_ELF)"
 
 -include $(OBJS:.o=.d) $(BUILD)/probe_main.d
 

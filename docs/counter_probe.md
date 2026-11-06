@@ -17,6 +17,9 @@ workloads would have missed that it is not counting instructions at all.
 An illegal CSR access is a useful answer here, not a crash, so the probe's trap handler records it and skips the
 instruction. Each event selector gets its own counter, and one counter stays on event 0 as a control.
 
+`make tickgap GAP="..."` (`fw/probe/tickgap.c`) is a second experiment image. Each `-D` flag changes one thing, and
+`scripts/tickgap_matrix.sh` runs the whole matrix. It was used to explain tick lateness under `-icount`.
+
 ## What could go wrong
 
 - A trapped `csrr` leaves garbage in the result. The probe reports traps per CSR for this reason.

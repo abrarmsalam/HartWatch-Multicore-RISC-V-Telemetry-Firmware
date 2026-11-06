@@ -138,8 +138,7 @@ so no-icount timings are not comparable with Day 1's. Raw output of every number
 
   (`-icount`, first to last sample. Without icount, `mepc` in workload was 1884-1998 of 2000.)
 - **Surprise 1: tick gaps widened.** Under `-icount`, gaps were 999-1001 us with idle U54s on Day 1 and in the baseline
-  today. With busy U54s they are 873-1098 us. Mean is still 999-1000 us and 0 ticks are late.
-  **Hypothesis (not tested):** QEMU's round-robin scheduling of busy harts delays when a tick is noticed.
+  today. With busy U54s they are 873-1098 us. Mean is still 999-1000 us and 0 ticks are late. Explained in Finding 5.
 - **Surprise 2: read and write misses now cross over slightly.** The probe, with no ISR running, showed exactly 0 on
   the other event. With sampling on, the store hart shows 94,536 read misses, about 0.1% of its write misses.
   **Hypothesis (not tested):** the ISR's own memory accesses miss because the workload evicted their TLB entries.
@@ -149,6 +148,43 @@ so no-icount timings are not comparable with Day 1's. Raw output of every number
 - **No-icount reminder.** Gaps ranged from 1 us to 126,741 us and 18-113 ticks per hart were late. Miss counts were lower
   than under `-icount` and varied between runs. The time-based test limits passed, but these runs say nothing about
   timing quality.
+
+### Finding 5 -- tick lateness comes from QEMU's round-robin scheduling (review item)
+
+- **Observed.** `make tickgap` reproduced the widening. Ticks are never early, only late, so gaps below 1000 us are
+  catch-up after a late tick. Raw data: `docs/data/tickgap_matrix.txt`. All `-icount`, 2000 ticks per hart.
+
+  | Factor changed | Result (worst lateness on h1/h2) |
+  | --- | --- |
+  | Busy harts 0, 1 (h1), 2, 3, 4 | 1, 1, 41, 73, 98 us |
+  | Workload: branch, load, store, mixed | 98 us every time |
+  | ISR: no sampling, sampling, +1000 pad, +10000 pad | 98 us every time |
+  | E51: 100 Hz tick or asleep | 98 us both (h1 72 us with E51 asleep) |
+  | Period 500, 1000, 2000, 4000 us | 49, 98, 196, 391 us, about 9.8% of period |
+
+- **Hypothesis.** In `accel/tcg/tcg-accel-ops-rr.c`, under icount all harts share one thread and take turns. Each slice
+  is `time_to_next_deadline / cpu_count`, where `cpu_count` counts all CPUs. Timers are noticed between slices, and a
+  hart can only take its interrupt on its own turn. So a tick waits for the other busy harts' slices.
+- **Test.** That predicts lateness of `period / cpu_count` for 2 busy, ticking harts, growing as CPUs are removed.
+  Measured 334, 250, 201 us at `-smp` 3, 4, 5. A small model of that rule gave 333, 250, 200 us.
+- **Result.** Host scheduling, workload and ISR length are ruled out. Lateness is deterministic and comes from the
+  scheduler rule. The dependence on hart position (h3 stays at 0-1 us in most runs) fits a rotation order effect.
+- **Not explained.** The toy model does NOT reproduce the case with all 4 harts ticking: it gave up to 596 us against
+  98 us measured, and it got which harts are late wrong. Other harts' deadlines shorten the slices in a way the model
+  misses. The mechanism is supported, but the exact 98 us is unexplained. Hart 4's single 128 us outlier is also
+  unexplained.
+- **Also found.** With busy harts that have no timer, one ticking hart was up to 48,800 us late, since nothing shortens
+  the slices. Any later experiment that mixes ticking and non-ticking busy harts must expect this.
+- **Consequence.** Sample `mtime` jitter under `-icount` is a QEMU artifact and scales with the period. It says nothing
+  about interrupt latency on silicon.
+
+### Review fixes
+
+- `SAMPLE_CHECKSUM` build flag added. The checksum is test instrumentation, not part of the telemetry design.
+- CI gate is measured with sampling disabled, for the reasons in `docs/DESIGN.md`.
+- Attribution of the extra misses to the ISR's own accesses is inferred: the probe, with no ISR, read exactly 0 on the
+  other event. No experiment has isolated which ISR access misses.
+- `make test` timeout is now `TEST_TIMEOUT`, default 120 s (was 30 s).
 
 ### Do the tests catch bugs?
 

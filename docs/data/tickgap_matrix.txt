@@ -1,0 +1,36 @@
+--- number of busy harts (alu everywhere, all 4 tick)
+0 busy                             h1 gap 999..1001 wide 0 late 0..1 | h2 gap 999..1001 wide 0 late 0..1 | h3 gap 999..1001 wide 0 late 0..1 | h4 gap 999..1001 wide 0 late 0..1 | 
+1 busy (h1)                        h1 gap 999..1001 wide 0 late 0..1 | h2 gap 999..1001 wide 0 late 0..1 | h3 gap 999..1001 wide 0 late 0..1 | h4 gap 999..1001 wide 0 late 0..1 | 
+1 busy (h4)                        h1 gap 999..1001 wide 0 late 0..1 | h2 gap 799..1001 wide 1 late 0..201 | h3 gap 999..1001 wide 0 late 0..1 | h4 gap 999..1001 wide 0 late 0..1 | 
+2 busy (h1,h2)                     h1 gap 959..1041 wide 169 late 0..41 | h2 gap 960..1040 wide 715 late 0..41 | h3 gap 999..1000 wide 0 late 0..1 | h4 gap 1000..1000 wide 0 late 0..0 | 
+3 busy (h1-h3)                     h1 gap 927..1073 wide 1121 late 0..73 | h2 gap 928..1072 wide 788 late 0..73 | h3 gap 999..1001 wide 0 late 0..1 | h4 gap 872..1001 wide 1 late 0..129 | 
+4 busy                             h1 gap 902..1098 wide 1098 late 0..98 | h2 gap 902..1098 wide 1046 late 0..98 | h3 gap 999..1001 wide 0 late 0..1 | h4 gap 872..1000 wide 1 late 0..128 | 
+--- workload (4 busy)
+all branch                         h1 gap 902..1098 wide 1098 late 0..98 | h2 gap 902..1098 wide 1046 late 0..98 | h3 gap 999..1001 wide 0 late 0..1 | h4 gap 872..1000 wide 1 late 0..128 | 
+all load                           h1 gap 902..1098 wide 1126 late 0..98 | h2 gap 902..1098 wide 1031 late 0..98 | h3 gap 999..1001 wide 0 late 0..1 | h4 gap 872..1000 wide 1 late 0..128 | 
+all store                          h1 gap 902..1098 wide 1126 late 0..98 | h2 gap 902..1098 wide 1031 late 0..98 | h3 gap 999..1001 wide 0 late 0..1 | h4 gap 872..1000 wide 1 late 0..128 | 
+mixed                              h1 gap 902..1098 wide 1118 late 0..98 | h2 gap 902..1098 wide 1038 late 0..98 | h3 gap 999..1001 wide 0 late 0..1 | h4 gap 872..1000 wide 1 late 0..128 | 
+mixed, rotated                     h1 gap 902..1098 wide 31 late 0..98 | h2 gap 902..1098 wide 220 late 0..98 | h3 gap 928..1072 wide 122 late 0..72 | h4 gap 840..1000 wide 1 late 0..160 | 
+--- ISR length (4 busy, mixed)
+no sampling                        h1 gap 902..1098 wide 771 late 0..98 | h2 gap 902..1098 wide 697 late 0..98 | h3 gap 999..1001 wide 0 late 0..1 | h4 gap 872..1000 wide 1 late 0..128 | 
+sampling                           h1 gap 902..1098 wide 1118 late 0..98 | h2 gap 902..1098 wide 1038 late 0..98 | h3 gap 999..1001 wide 0 late 0..1 | h4 gap 872..1000 wide 1 late 0..128 | 
+sampling + pad 1000                h1 gap 902..1098 wide 1109 late 0..98 | h2 gap 902..1098 wide 1019 late 0..98 | h3 gap 999..1001 wide 0 late 0..1 | h4 gap 872..1000 wide 1 late 0..128 | 
+sampling + pad 10000               h1 gap 902..1073 wide 345 late 0..98 | h2 gap 902..1098 wide 745 late 0..98 | h3 gap 999..1001 wide 0 late 0..1 | h4 gap 872..1000 wide 1 late 0..128 | 
+--- E51 tick (4 busy, mixed)
+E51 100 Hz tick                    h1 gap 902..1098 wide 1118 late 0..98 | h2 gap 902..1098 wide 1038 late 0..98 | h3 gap 999..1001 wide 0 late 0..1 | h4 gap 872..1000 wide 1 late 0..128 | 
+E51 asleep                         h1 gap 928..1072 wide 976 late 0..72 | h2 gap 902..1098 wide 975 late 0..98 | h3 gap 999..1001 wide 0 late 0..1 | h4 gap 872..1000 wide 1 late 0..128 | 
+--- only one hart ticks (others busy, no timer)
+h1 ticks, 4 busy                   h1 gap 0..49440 wide 1999 late 0..48800 | 
+h4 ticks, 4 busy                   h4 gap 0..36800 wide 1999 late 0..36000 | 
+--- period (4 busy, alu)
+period 500 us                      h1 gap 451..549 wide 1104 late 0..49 | h2 gap 451..549 wide 933 late 0..49 | h3 gap 499..501 wide 0 late 0..1 | h4 gap 436..501 wide 1 late 0..65 | 
+period 2000 us                     h1 gap 1804..2196 wide 1154 late 0..196 | h2 gap 1804..2196 wide 1114 late 0..196 | h3 gap 1999..2001 wide 0 late 0..1 | h4 gap 1744..2001 wide 1 late 0..257 | 
+period 4000 us                     h1 gap 3609..4391 wide 1143 late 0..391 | h2 gap 3609..4391 wide 1050 late 0..391 | h3 gap 3999..4001 wide 0 late 0..1 | h4 gap 3488..4400 wide 801 late 0..512 | 
+
+real	4m11.616s
+user	4m10.203s
+sys	0m2.416s
+--- CPU count with the same 2 busy, ticking harts (h1,h2, alu): the budget divides by this
+-smp 3                             h1 gap 666..1334 wide 4 late 0..334 | h2 gap 666..1334 wide 698 late 0..334 | 
+-smp 4                             h1 gap 750..1250 wide 22 late 0..250 | h2 gap 749..1250 wide 754 late 0..251 | 
+-smp 5                             h1 gap 799..1201 wide 14 late 0..201 | h2 gap 800..1200 wide 729 late 0..200 | 
