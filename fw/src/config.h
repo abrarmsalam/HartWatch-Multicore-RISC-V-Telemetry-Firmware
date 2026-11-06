@@ -36,6 +36,11 @@
 #define SAMPLE_CHECKSUM  1
 #endif
 
+/* Samples per wire frame. Larger frames spread the cost of the first, absolute sample. */
+#ifndef FRAME_SAMPLES
+#define FRAME_SAMPLES    16
+#endif
+
 /* One ring per U54 in L2-LIM. Must be a power of two. 4096 slots x 64 bytes = 256 KiB per hart. */
 #ifndef RING_SLOTS
 #define RING_SLOTS       4096

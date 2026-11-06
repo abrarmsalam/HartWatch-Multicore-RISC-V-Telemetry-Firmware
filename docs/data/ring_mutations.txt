@@ -1,0 +1,11 @@
+control (no mutation)                    rc=0   tsan_races=0      attempts 2000000 received 812286 dropped 1187714 seq_gaps 1187714 bad 0
+ring_commit: release -> relaxed          rc=66  tsan_races=1      
+ring_peek: acquire -> relaxed            rc=66  tsan_races=1      
+ring_consume: release -> relaxed         rc=66  tsan_races=1      
+ring_reserve: acquire -> relaxed         rc=66  tsan_races=1      
+full check off by one                    rc=66  tsan_races=1      
+
+  FAILED /tmp/u/fw/tests/test_ring.c:112: push(r, 100) == 0
+  FAILED /tmp/u/fw/tests/test_ring.c:114: ring_dropped(r) == 2
+  FAILED /tmp/u/fw/tests/test_ring.c:115: ring_occupancy(r) == 4
+warnings: 0

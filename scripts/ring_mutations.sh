@@ -13,7 +13,8 @@ open(p,'w').write(s)
 PY
     gcc -std=gnu11 -O1 -g -fsanitize=thread -pthread -I/tmp/rm/fw/src /tmp/rm/fw/tests/test_ring_tsan.c \
         /tmp/rm/fw/src/sample.c -o /tmp/rm/t 2>/dev/null || { echo "$1: BUILD FAILED"; return; }
-    /tmp/rm/t 2000000 64 >/tmp/rm/out 2>&1; rc=$?
+    # halt_on_error stops at the first race. Without it, reporting races can take many minutes.
+    TSAN_OPTIONS="halt_on_error=1" timeout -s KILL 120 /tmp/rm/t "${ATTEMPTS:-2000000}" 64 >/tmp/rm/out 2>&1; rc=$?
     races=$(grep -c 'WARNING: ThreadSanitizer: data race' /tmp/rm/out)
     printf '%-40s rc=%-3s tsan_races=%-6s %s\n' "$1" "$rc" "$races" "$(grep '^attempts' /tmp/rm/out)"
 }

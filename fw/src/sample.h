@@ -37,7 +37,12 @@ _Static_assert(offsetof(sample_t, mepc) == 56, "wire layout changed");
 #define SAMPLE_ERR_MCYCLE    (1u << 4)
 #define SAMPLE_ERR_MINSTRET  (1u << 5)
 
+/* 64-bit hash of every field except check. sample_checksum() folds it to 16 bits. */
+uint64_t sample_digest(const sample_t *s);
 uint16_t sample_checksum(const sample_t *s);
+
+/* Mix one record into a running digest, so two ends can compare whole streams. */
+uint64_t sample_digest_step(uint64_t running, const sample_t *s);
 
 void sample_fill(sample_t *s, uint32_t seq, uint8_t hart, const hpm_snapshot_t *snap,
                  uint64_t mtime, uint64_t mepc);

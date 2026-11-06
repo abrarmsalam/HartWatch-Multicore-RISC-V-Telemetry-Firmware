@@ -8,10 +8,10 @@ static uint64_t rotl7(uint64_t x)
     return (x << 7) | (x >> 57);
 }
 
-/* Rotate-and-xor over the record's eight 64-bit words, folded to 16 bits. A plain xor would
- * miss two fields swapping places; the rotate makes position matter. It is cheap because it
- * runs in the ISR. This catches torn or corrupted records, it is not a strong hash. */
-uint16_t sample_checksum(const sample_t *s)
+/* Rotate-and-xor over the record's eight 64-bit words. A plain xor would miss two fields
+ * swapping places; the rotate makes position matter. It is cheap because it runs in the ISR.
+ * This catches torn or corrupted records, it is not a strong hash. */
+uint64_t sample_digest(const sample_t *s)
 {
     uint64_t acc = (uint64_t)s->seq | ((uint64_t)s->hart << 32) | ((uint64_t)s->flags << 40);
 
@@ -20,9 +20,19 @@ uint16_t sample_checksum(const sample_t *s)
     acc = rotl7(acc) ^ s->minstret;
     for (unsigned i = 0; i < HPM_SLOTS; i++)
         acc = rotl7(acc) ^ s->hpm[i];
-    acc = rotl7(acc) ^ s->mepc;
+    return rotl7(acc) ^ s->mepc;
+}
+
+uint16_t sample_checksum(const sample_t *s)
+{
+    uint64_t acc = sample_digest(s);
 
     return (uint16_t)(acc ^ (acc >> 16) ^ (acc >> 32) ^ (acc >> 48));
+}
+
+uint64_t sample_digest_step(uint64_t running, const sample_t *s)
+{
+    return rotl7(running) ^ sample_digest(s);
 }
 
 void sample_fill(sample_t *s, uint32_t seq, uint8_t hart, const hpm_snapshot_t *snap,
