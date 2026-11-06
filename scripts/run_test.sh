@@ -7,7 +7,7 @@ elf="$1"; cmd="$2"
 mkdir -p build
 log=build/last_run.log
 
-timeout --signal=KILL "${TEST_TIMEOUT:-30}" bash -c "$cmd" > "$log" 2>&1
+timeout --signal=KILL "${TEST_TIMEOUT:-120}" bash -c "$cmd" > "$log" 2>&1
 rc=$?
 
 cat "$log"

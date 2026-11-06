@@ -69,7 +69,7 @@ PASS
 ## If something goes wrong
 
 - **`riscv64-unknown-elf-gcc: command not found`** -- install the compiler or pass `CROSS=<prefix>-`.
-- **`make test` says "timed out"** -- the firmware hung. Run `make run` and see how far the output gets; the last
+- **`make test` says "timed out"** -- the firmware hung, or the machine is slow (raise it with `make test TEST_TIMEOUT=300`). Run `make run` and see how far the output gets; the last
   line printed is the clue.
 - **Output shows `PANIC`** -- the firmware caught an unexpected trap and printed the faulting address (`pc=`). Look
   it up with `riscv64-unknown-elf-addr2line -e build/hartwatch.elf 0x<pc>`.

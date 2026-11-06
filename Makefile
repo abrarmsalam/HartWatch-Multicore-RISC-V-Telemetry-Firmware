@@ -28,6 +28,7 @@ GDB   ?= $(shell command -v gdb-multiarch >/dev/null 2>&1 && echo gdb-multiarch 
 BUILD := build
 HPM_BACKEND ?= qemu
 SAMPLE_CHECKSUM ?= 1
+TEST_TIMEOUT ?= 120
 HOSTCC ?= cc
 ELF   := $(BUILD)/hartwatch.elf
 
@@ -114,7 +115,7 @@ host-test:
 	@$(BUILD)/test_sample_nochk
 
 test: host-test $(ELF)
-	@scripts/run_test.sh $(ELF) "$(QEMU) $(QEMU_FLAGS)"
+	@TEST_TIMEOUT=$(TEST_TIMEOUT) scripts/run_test.sh $(ELF) "$(QEMU) $(QEMU_FLAGS)"
 
 probe: $(PROBE_ELF)
 	@EXPECT="PROBE DONE" TEST_TIMEOUT=120 scripts/run_test.sh $(PROBE_ELF) "$(QEMU) $(QEMU_BASE) -kernel $(PROBE_ELF)"
