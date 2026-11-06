@@ -51,3 +51,79 @@ Only record things that actually happened. A hypothesis is marked as one until a
 
 None in the firmware this day beyond the toolchain notes above (one linker warning about an RWX segment, silenced with
 `--no-warn-rwx-segments`).
+
+---
+
+## Day 2
+
+**Environment.** Ubuntu 24.04 container (`Dockerfile.dev`) on an arm64 Mac: QEMU 8.2.2, riscv64-unknown-elf-gcc 13.2.0,
+GDB 15.1. Homebrew was not used because it offers QEMU 11.1.3, not the pinned version. This differs from Day 1's host,
+so no-icount timings are not comparable with Day 1's. Raw output of every number below is in `docs/data/probe_*.txt`
+(3 runs per mode, 5 repetitions per workload per run).
+
+### Finding 1 -- IPC does not vary on QEMU, so it cannot be the QEMU gate metric
+
+- **Observed.** Hart 1 alone, `make probe`, workloads with known instruction counts:
+
+  | Workload | True instructions | icount `minstret` error | icount IPC | no-icount IPC |
+  | --- | --- | --- | --- | --- |
+  | alu | 40,000,000 | +10 | 1.00000 | 0.99440-0.99996 |
+  | branch | 48,000,000 | +11 | 1.00000 | 0.99978-0.99999 |
+  | load, stride 64 B | 35,000,000 | +15 | 1.00000 | 0.99964-0.99997 |
+  | load, stride 4 KiB + 64 B | 35,000,000 | +16 | 1.00000 | 0.99997-0.99999 |
+  | store, stride 64 B | 35,000,000 | +15 | 1.00000 | 0.99976-0.99997 |
+  | store, stride 4 KiB + 64 B | 35,000,000 | +16 | 1.00000 | 0.99993-1.00000 |
+
+- **Cause (from the QEMU 8.2.2 source).** `get_ticks()` in `target/riscv/csr.c` returns `icount_get()` under icount and
+  `cpu_get_host_ticks()` otherwise. It has no separate notion of instructions, so `mcycle` and `minstret` are one clock.
+- **Supporting tests.**
+  - `minstret` rose by 10,000,001 across a 10 ms `wfi` sleep under icount, so it does not count retired instructions.
+  - With harts 2-4 busy under icount, hart 1's alu run read 208,000,004-292,000,001 instead of 40,000,010. The counters
+    are not hart-local there: they follow global virtual time. The size of the factor (5-7x, not 4x) is not explained.
+  - Without icount, `mcycle` tracks `mtime` x 1000 and `minstret` is wrong by up to about 1.7 billion. That is host
+    time and says nothing about RISC-V behaviour.
+  - The 3 icount runs were line-for-line identical, including the busy-hart phase.
+- **Decision (owner, Option A).**
+  - Primary gate metric: `minstret` for a fixed amount of work on one U54 with the E51 asleep, under icount. This is
+    valid only in that setup, where it equals the true count to within 16 instructions.
+  - Plain 3% threshold, no Mann-Whitney U in the icount gate: repeat runs are identical, so variance is zero and a rank
+    test has nothing to work with.
+  - Mann-Whitney U is kept only for a separate no-icount wall-clock job, labelled as measuring QEMU host runtime.
+  - Real IPC stays in `hpm_sifive`, documented as untested on hardware.
+  - No TCG plugin and no real-hardware path.
+
+### Finding 2 -- QEMU's TLB events do move, and they are per-hart
+
+- **Observed.** Per run, identical in both modes and with other harts busy:
+
+  | Workload | DTLB read miss | DTLB write miss |
+  | --- | --- | --- |
+  | alu, branch | 0 | 0 |
+  | load, stride 64 B | 78,125 | 0 |
+  | load, stride 4 KiB + 64 B | 5,000,000 | 0 |
+  | store, stride 64 B | 0 | 78,125 |
+  | store, stride 4 KiB + 64 B | 0 | 5,000,000 |
+
+  78,125 is 5,000,000 x 64 / 4096, the number of 4 KiB page crossings.
+- **Limit.** These count fills of QEMU's software TLB. They are not hardware TLB misses.
+- **ITLB miss did not separate these workloads.** One read per workload: 0-23 under icount, 0-1 without. None of these
+  workloads has a large code footprint.
+- **Decision (owner).** Three `mhpmcounter`s per sample: DTLB read miss, DTLB write miss, ITLB miss.
+
+### Finding 3 -- PMU limits on this machine
+
+- `mcountinhibit` traps as an illegal instruction on all harts tested (0 and 1): the source sets `sifive_u` CPUs to
+  privilege spec 1.10 and the CSR needs 1.11. Counters cannot be paused.
+- `mhpmcounter3`-`18` exist; `19`-`31` trap, although `mhpmevent3`-`31` are all readable.
+- SiFive-style selector values read 0 on every workload. Those values were written from memory and are unverified, so
+  this says nothing about silicon. In QEMU 8.2.2, `riscv_pmu_update_event_map` rejects unknown events.
+- An old selector keeps counting after a new one is written, until 0 is written (`riscv_pmu_update_event_map` only
+  removes a mapping for value 0). `hpm_qemu` must write 0 before changing a selector.
+
+### Defects
+
+- First probe run: `%-9s` printed literally because `kprintf` has no `-` flag, shifting columns. Fixed by using `%9s`.
+- First probe run: reading `mcountinhibit` trapped and left garbage in the result (`0x5 reads back 0xa`). Fixed by
+  reporting traps per CSR.
+- First probe run: selectors reused one counter and contaminated later rows (see Finding 3). Fixed with one counter each.
+- `make clean` deleted probe logs kept in `build/`. Runs were repeated and raw output now lives in `docs/data/`.

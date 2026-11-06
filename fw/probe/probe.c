@@ -18,6 +18,7 @@
 void wl_alu(uint64_t iters);
 void wl_branch(uint64_t iters);
 void wl_stride(uint64_t iters, uintptr_t base, uint64_t stride, uint64_t size_mask);
+void wl_store(uint64_t iters, uintptr_t base, uint64_t stride, uint64_t size_mask);
 
 #define ALU_ITERS     5000000UL
 #define BRANCH_ITERS  2000000UL
@@ -130,6 +131,8 @@ static void run_alu(void)      { wl_alu(ALU_ITERS); }
 static void run_branch(void)   { wl_branch(BRANCH_ITERS); }
 static void run_stride64(void) { wl_stride(STRIDE_ITERS, ARRAY_BASE, 64, ARRAY_MASK); }
 static void run_stride4k(void) { wl_stride(STRIDE_ITERS, ARRAY_BASE, 4096 + 64, ARRAY_MASK); }
+static void run_store64(void)  { wl_store(STRIDE_ITERS, ARRAY_BASE, 64, ARRAY_MASK); }
+static void run_store4k(void)  { wl_store(STRIDE_ITERS, ARRAY_BASE, 4096 + 64, ARRAY_MASK); }
 
 static const struct workload {
     const char *name;
@@ -140,32 +143,36 @@ static const struct workload {
     { "branch",    run_branch,   BRANCH_ITERS * 24 },
     { "stride64",  run_stride64, STRIDE_ITERS * 7 },
     { "stride4k",  run_stride4k, STRIDE_ITERS * 7 },
+    { "store64",   run_store64,  STRIDE_ITERS * 7 },
+    { "store4k",   run_store4k,  STRIDE_ITERS * 7 },
 };
 #define NUM_WORKLOADS (sizeof(workloads) / sizeof(workloads[0]))
 
-/* mhpmcounter5 is programmed with the DTLB read-miss selector (see selectors[]), so each
- * measurement also shows whether that per-hart event moves. IPC is in thousandths:
+/* mhpmcounter5 and 7 are programmed with the DTLB read-miss and write-miss selectors (see
+ * selectors[]), so each measurement also shows whether those events move. IPC is in thousandths:
  * kprintf has no floating point. */
 static void measure(const struct workload *w, int rep)
 {
     uint64_t t0 = CLINT_MTIME;
     uint64_t h0 = hpm_counter_read(5);
+    uint64_t w0 = hpm_counter_read(7);
     uint64_t c0 = csr_read(mcycle);
     uint64_t i0 = csr_read(minstret);
     w->run();
     uint64_t i1 = csr_read(minstret);
     uint64_t c1 = csr_read(mcycle);
+    uint64_t w1 = hpm_counter_read(7);
     uint64_t h1 = hpm_counter_read(5);
     uint64_t t1 = CLINT_MTIME;
 
     uint64_t dc = c1 - c0, di = i1 - i0, dt = t1 - t0;
-    kprintf("%9s %d %12lu %12lu %9lu %9lu %11ld %10lu\n", w->name, rep, dc, di, dt,
-            dc ? di * 1000 / dc : 0, (long)(di - w->expected_instret), h1 - h0);
+    kprintf("%9s %d %12lu %12lu %9lu %9lu %11ld %10lu %10lu\n", w->name, rep, dc, di, dt,
+            dc ? di * 1000 / dc : 0, (long)(di - w->expected_instret), h1 - h0, w1 - w0);
 }
 
 static void measure_all(const char *tag)
 {
-    kprintf("[%s]  workload rep   d_mcycle   d_minstret   d_mtime ipc_x1000 instret_err d_hpm5\n", tag);
+    kprintf("[%s]  workload rep   d_mcycle   d_minstret   d_mtime ipc_x1000 instret_err d_hpm5 d_hpm7\n", tag);
     for (unsigned w = 0; w < NUM_WORKLOADS; w++)
         for (int r = 0; r < REPS; r++)
             measure(&workloads[w], r);
@@ -234,7 +241,7 @@ static const struct { const char *name; uint64_t sel; } selectors[] = {
     { "qemu:cycles",        0x1 },
     { "qemu:dtlb_rd_miss",  0x10019 },      /* mhpmcounter5: the d_hpm5 column in measure() */
     { "qemu:instructions",  0x2 },
-    { "qemu:dtlb_wr_miss",  0x1001B },
+    { "qemu:dtlb_wr_miss",  0x1001B },      /* mhpmcounter7: the d_hpm7 column in measure() */
     { "qemu:itlb_miss",     0x10021 },
     { "sifive:int_load",    (1UL << 9)  | 0 },
     { "sifive:cond_branch", (1UL << 14) | 0 },

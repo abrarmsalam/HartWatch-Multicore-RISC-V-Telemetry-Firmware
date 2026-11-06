@@ -8,6 +8,7 @@
  *   wl_alu     8 instructions/iteration   no memory, one predictable branch
  *   wl_branch 24 instructions/iteration   4 data-dependent (pseudo-random) branches
  *   wl_stride  7 instructions/iteration   one load per iteration, walking a large array
+ *   wl_store   7 instructions/iteration   one store per iteration, walking a large array
  */
     .section .text
     .balign 4
@@ -65,6 +66,20 @@ wl_stride:
 1:  add     t1, a1, t0
     ld      t2, 0(t1)
     add     t3, t3, t2
+    add     t0, t0, a2
+    and     t0, t0, a3
+    addi    a0, a0, -1
+    bnez    a0, 1b
+    ret
+
+/* void wl_store(uint64_t iters, uintptr_t base, uint64_t stride, uint64_t size_mask) */
+    .globl wl_store
+wl_store:
+    li      t0, 0
+    li      t3, 0
+1:  add     t1, a1, t0
+    sd      t3, 0(t1)
+    addi    t3, t3, 1
     add     t0, t0, a2
     and     t0, t0, a3
     addi    a0, a0, -1
