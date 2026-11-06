@@ -378,3 +378,15 @@ plus a real-database test.
 
 **Not done.** No WebSocket (D8). The dashboard was served, and its API calls work, but it was not viewed in a browser.
 
+---
+
+## Day 7
+
+**Done.** `docs/DESIGN.md` completed, README rebuilt with measured numbers, `scripts/demo.sh` written and run. Output:
+`docs/data/demo_output.txt` (run 5: 8000 samples, 0 damaged frames, the same hot functions as Day 4).
+
+**Corrected.** The README diagram showed the decoder feeding the CI gate. The gate reads a separate benchmark image with sampling
+off, so the diagram now shows that.
+
+**Not done.** No v1.0 tag, as the owner ordered.
+

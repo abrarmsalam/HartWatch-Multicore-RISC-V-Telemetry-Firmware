@@ -1,0 +1,82 @@
+host unit tests (backend: fake, SAMPLE_CHECKSUM=1)
+  test_layout
+  test_fill_copies_every_field
+  test_checksum_golden
+  test_checksum_catches_every_single_bit_flip
+  test_checksum_catches_swapped_fields
+  test_check_next_accepts_good_stream
+  test_check_next_rejects_bad_stream
+  test_tick_uses_backend_and_the_right_hart
+  test_tick_when_full_counts_a_drop_and_skips_the_snapshot
+557 checks, 0 failed
+host unit tests (backend: fake, SAMPLE_CHECKSUM=0)
+  test_layout
+  test_fill_copies_every_field
+  test_corruption_is_not_detected_without_checksum
+  test_check_next_accepts_good_stream
+  test_check_next_rejects_bad_stream
+  test_tick_uses_backend_and_the_right_hart
+  test_tick_when_full_counts_a_drop_and_skips_the_snapshot
+44 checks, 0 failed
+ring unit tests
+  test_layout
+  test_init_rejects_bad_capacity
+  test_empty
+  test_fifo_order
+  test_peek_does_not_consume
+  test_reserve_without_commit_publishes_nothing
+  test_every_slot_is_usable
+  test_full_drops_and_keeps_old_records
+  test_space_returns_after_consume
+  test_wraps_many_times
+  test_indices_near_the_top_of_their_range
+60 checks, 0 failed
+wire unit tests
+  test_zigzag
+  test_varint
+  test_crc
+  test_cobs_published_examples
+  test_cobs_long_runs
+  test_frame_has_no_zero_until_the_end
+  test_worst_case_frame_fits
+588 checks, 0 failed
+........................................................................ [ 81%]
+................                                                         [100%]
+88 passed in 2.79s
+attempts 2000000 received 886386 dropped 1113614 seq_gaps 1113614 bad 0
+
+=== HartWatch firmware ===
+hart 0: monitor core up, isa=rv64acimu
+hart 0: all 5 harts are online
+  hart 0  isa=rv64acimu
+  hart 1  isa=rv64acdfimsu
+  hart 2  isa=rv64acdfimsu
+  hart 3  isa=rv64acdfimsu
+  hart 4  isa=rv64acdfimsu
+hart 0: waiting for each U54 to take 2000 timer interrupts at 1000 Hz...
+
+ hart  ticks  mean_gap_us  min_gap_us  max_gap_us  late(>2x)
+    1   2000          999         882        1118          0
+    2   2000          999         902        1098          0
+    3   2000         1000         921        1079          0
+    4   2000          999         777        1223          0
+
+ counter backend: qemu
+ hart workload samples drops  bad mepc_in_wl dtlb_read dtlb_write  itlb
+    1      alu    2000     0    0       1999        72         95     8
+    2   branch    2000     0    0       1998         0         31     0
+    3     load    2000     0    0       1997 101185735       7941 24265
+    4    store    2000     0    0       1994    186983   89750115 24190
+ wire: 504 frames, 126723 bytes on UART1
+
+ALL TESTS PASSED
+-----------------------------------------------------------
+PASS
+ hart  samples  dropped  frames  wire_bytes  bytes/sample  span_us  bytes/s
+    1     2000        0     126       29215         14.61  1998928    14615
+    2     2000        0     126       29238         14.62  1998946    14627
+    3     2000        0     126       33075         16.54  1999001    16546
+    4     2000        0     126       35195         17.60  1998872    17607
+ all      8000  bytes 126723  bytes/sample 15.84  span_us 1999288  bytes/s 63384
+DECODER PASS
+make test rc=0

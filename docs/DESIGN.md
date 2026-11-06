@@ -1,6 +1,38 @@
 # HartWatch design
 
-Later days add to this document. The Arm PMU mapping section is not written yet.
+Everything measured here is from QEMU 8.2.2. Module notes in `docs/` explain each part in plain language.
+
+## Architecture
+
+Performance counters are read on the core being measured, so sampling cost lands on that core. HartWatch keeps that cost to a
+counter snapshot and a ring write, and moves everything else to the monitor core.
+
+```
+U54 harts 1-4                    L2-LIM              E51 hart 0                 UART1
+timer ISR -> snapshot + mepc --> SPSC ring per hart --> drain, delta, varint, --> capture file
+             (194 instructions                          CRC-32, COBS
+              per tick on QEMU)
+
+Host:  decoder -> symbolizer (ELF/DWARF) -> TimescaleDB -> REST API -> dashboard
+
+Separate path, with sampling off:  benchmark image -> counters on the console -> CI gate
+```
+
+| Part | Runs on | Code | Note |
+| --- | --- | --- | --- |
+| Counter access | U54 | `fw/src/hpm/` | `docs/hpm_backend.md` |
+| Sampling ISR | U54 | `fw/src/sampler.c`, `sample.c`, `timer.c` | `docs/sampler.md` |
+| Ring | U54 and E51 | `fw/src/ring.h` | `docs/ring.md` |
+| Drain | E51 | `fw/src/drain.c` | `docs/drain.md` |
+| Encoding and framing | E51 | `fw/src/wire.c` | `docs/wire.md` |
+| Decoder | Host | `host/decoder.py`, `check_stream.py` | `docs/decoder.md` |
+| Symbolization | Host | `host/symbols.py` | `docs/symbols.md` |
+| Collector and schema | Host | `host/collector.py`, `host/sql/` | `docs/collector.md` |
+| API and dashboard | Host | `host/api.py`, `host/static/` | `docs/api.md` |
+| Benchmarks and gate | QEMU and host | `fw/bench/`, `host/gate.py`, `host/wallclock.py` | `docs/benchmarks.md` |
+
+**The CI gate does not read the telemetry stream.** It needs sampling disabled, so it uses a separate benchmark image and reads
+counters from the console.
 
 ## Sample record
 
@@ -34,8 +66,14 @@ Measured wire sizes are in the next section.
 
 UART1 carries a sequence of frames. Each frame is `COBS(payload + CRC) 0x00`.
 
-- **CRC:** CRC-32/ISO-HDLC (the same as zlib's `crc32`) of the payload, 4 bytes, little-endian.
-- **Varint:** unsigned LEB128, up to 10 bytes. **Zigzag:** `(v << 1) ^ (v >> 63)`.
+- **Varint:** unsigned LEB128. 7 bits per byte, least significant group first. The top bit means more bytes follow. Up to 10
+  bytes. Example: 300 is `ac 02`.
+- **Zigzag:** `(v << 1) ^ (v >> 63)`, on a 64-bit signed value. 0, -1, 1, -2, 2 become 0, 1, 2, 3, 4.
+- **CRC:** CRC-32/ISO-HDLC, the same as zlib's `crc32` (polynomial `0xEDB88320` reflected, initial value and final xor
+  `0xFFFFFFFF`). It covers the payload, and is appended as 4 bytes, little-endian. Check value: `"123456789"` gives `0xCBF43926`.
+- **COBS:** applied to payload plus CRC. Each block starts with a code byte `n`: `n - 1` data bytes follow, then an implied zero,
+  except that code `0xFF` means 254 data bytes with no implied zero. The result contains no `0x00`, so `0x00` ends the frame.
+  Overhead is at most one byte per 254, plus one.
 
 **Header, all frames:**
 
@@ -54,6 +92,31 @@ values are 0, so frames stand alone. `flags` and `check` are not sent.
 **END frame:** the header, then varint `attempts`, varint `drained`, varint `bad`, 1 byte `has_digest`, varint `digest`.
 `digest` starts at 0 and folds in each record as it leaves the ring: `digest = rotl(digest, 7) ^ sample_digest(record)`.
 It is 0 with `has_digest` = 0 when built with `SAMPLE_CHECKSUM=0`.
+
+### Worked example
+
+A real END frame from a 1 kHz capture, 25 bytes on the wire:
+
+```
+wire:     04 02 01 7d 05 d0 0f d0 0f 0f 01 95 ee 9c c2 c8 96 96 cd 05 31 45 26 41 00
+payload:  02 01 7d 00 d0 0f d0 0f 00 01 95 ee 9c c2 c8 96 96 cd 05 31 45 26 41
+```
+
+COBS: `04` means 3 data bytes (`02 01 7d`), then a zero. `05` means 4 data bytes (`d0 0f d0 0f`), then a zero. `0f` means 14 data
+bytes to the end. The last `00` is the delimiter.
+
+| Payload bytes | Field | Value |
+| --- | --- | --- |
+| `02` | `type` | END |
+| `01` | `hart` | 1 |
+| `7d` | `frame_seq` | 125 |
+| `00` | `dropped` | 0 |
+| `d0 0f` | `attempts` | 2000 |
+| `d0 0f` | `drained` | 2000 |
+| `00` | `bad` | 0 |
+| `01` | `has_digest` | yes |
+| `95 ee 9c c2 c8 96 96 cd 05` | `digest` | 403732649006806805 |
+| `31 45 26 41` | CRC-32 | little-endian |
 
 ### Measured wire size
 
@@ -105,6 +168,9 @@ memory of the FU540 manual suggests, to be verified.
 | `mcycle` | Virtual time under `-icount`, host time without | Core clock cycles |
 | `minstret` | Same clock as `mcycle` | Retired instructions |
 | IPC | 1.000 under `-icount`, 0.994-1.000 without | Should vary with workload |
+| Cost of an instruction | 1 ns each under `-icount`, by definition | Varies. CSR reads and MMIO can cost far more |
+| Tick lateness | Set by QEMU's hart rotation under `-icount` | Interrupt latency, not measured |
+| ISR cost | 194 instructions per tick, checksum off | Instruction count should be similar. Time not measured |
 | Counters per hart | Not per-hart under `-icount`: other harts inflate them | Per-hart |
 | Counters while in `wfi` | `minstret` keeps rising | Should not rise |
 | Event counters | `mhpmcounter3`-`18` | Believed to be 2 |
@@ -142,8 +208,45 @@ review, recorded in `docs/ring.md`.
 **Measured confirmation of this limitation.** With each barrier removed in turn, ThreadSanitizer reported a race every
 time, and the RISC-V stress test under QEMU passed every time. See the table in `docs/ring.md`.
 
+## The real-UART limit
+
+115200 baud with 8N1 framing carries 11.52 KB/s (calculated: 10 bits per byte). The measured stream at 1 kHz with 4 harts is 63,384
+bytes per virtual second under `-icount`. That is about 5.5 times more than this link carries, so this design at 1 kHz could not
+run over a real 115200 baud UART. The 100 Hz stream (7,573 bytes per virtual second) would fit.
+
+QEMU's UART has no baud limit, so this never appears in any run here. Real hardware would need a lower sample rate, a faster link,
+fewer fields, or batching on the host side. `uart_putc` would also spin on a full FIFO, which would make the E51 the bottleneck and
+turn UART speed into ring drops.
+
 ## Porting notes
 
-- Selecting a backend: `make HPM_BACKEND=sifive BUILD=build/sifive`. It has never run on hardware.
-- FU540: check `SIFIVE_EVENT_*` and the number of event counters against the manual before trusting `hpm_sifive.c`.
-- Arm PMU mapping: not written yet.
+**Everything in this section is from memory and untested on hardware.** Check each item against the vendor's manual first.
+
+### FU540 (`hpm_sifive`)
+
+- Build with `make HPM_BACKEND=sifive BUILD=build/sifive`. It compiles and links. It has never run.
+- `mhpmeventN` selectors, as remembered: event class in bits 7:0, event mask above. Class 0 is instruction commit, class 1 is
+  microarchitectural (branch mispredicts, for example), class 2 is the memory system (I-cache, D-cache, TLB misses).
+- The U54 is remembered as having only `mhpmcounter3` and `mhpmcounter4`, so the backend fills two of the three slots, and has no
+  separate DTLB write-miss event.
+- Real IPC would come from here: on silicon `mcycle` and `minstret` should be separate per-hart counters.
+- The UART divisor must be programmed. L2-LIM's size, caching and coherence must be checked, because the ring's argument assumes
+  coherent memory.
+
+### Arm PMU mapping
+
+| HartWatch | Arm equivalent, from memory |
+| --- | --- |
+| `mcycle` | `PMCCNTR_EL0` |
+| `minstret` | Event counter with event `0x08` (`INST_RETIRED`) |
+| `mhpmcounterN` and `mhpmeventN` | `PMEVCNTR<n>_EL0` and `PMEVTYPER<n>_EL0` |
+| DTLB miss | Event `0x05` (`L1D_TLB_REFILL`) |
+| ITLB miss | Event `0x02` (`L1I_TLB_REFILL`) |
+| Enable counters | `PMCR_EL0`, `PMCNTENSET_EL0` |
+| `mtime` | `CNTVCT_EL0` or `CNTPCT_EL0` |
+| `mtimecmp` | `CNTP_CVAL_EL0` |
+| `mepc` | `ELR_EL1` (or the level the handler runs at) |
+| Store-release and load-acquire | `STLR` and `LDAR` |
+
+Only the `hpm_backend` files and the timer and trap code would change. The ring is written in C atomics. Its ordering argument
+needs rechecking for Arm's memory model, though the same release/acquire pairing applies.

@@ -12,7 +12,7 @@ The owner is a university student who will be asked about every part of this in 
 
 ## Current state
 
-Days 1-3 are in this repo: multi-hart boot, 1 kHz sampling, SPSC rings, E51 drain, framed telemetry on UART1, host decoder, `make test`.
+Days 1-7 are in this repo: firmware, telemetry on UART1, decoder, symbolizer, TimescaleDB collector, REST API, dashboard, CI gate, benchmarks. PROGRESS.md and docs/MORNING_REPORT.md hold the latest state.
 Do not rewrite earlier work unless something is broken; if so, say why.
 
 ## Environment
@@ -38,6 +38,11 @@ Known limits found on Day 1:
 
 - Wire size: 15.84 bytes/sample and 63,384 bytes per virtual second for 4 harts at 1 kHz under `-icount`. QEMU's UART has no baud limit.
 - Removing any ring barrier was caught by ThreadSanitizer but NOT by the RISC-V stress test under QEMU. A stress pass is evidence about logic only, never ordering.
+
+## Day 6 findings (measured under `-icount`)
+
+- ISR: 194 instructions per tick with `SAMPLE_CHECKSUM=0`, 250 with it on. Overhead crosses 1% of retired instructions between 50,000 and 52,631.6 Hz. That is not a time overhead on silicon.
+- E51 drops samples above 20 kHz with 4 harts ticking, well before that 1% point.
 
 ## Hard rules (read these first)
 
