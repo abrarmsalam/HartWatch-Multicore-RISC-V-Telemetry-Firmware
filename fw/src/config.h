@@ -29,6 +29,13 @@
 /* Each sample carries three event counters: DTLB read miss, DTLB write miss, ITLB miss. */
 #define HPM_SLOTS        3
 
+/* Test instrumentation, not part of the telemetry design: 1 makes the ISR checksum every
+ * record so tests can catch corruption; 0 leaves `check` at 0 and adds no ISR work. Tests use
+ * 1. The overhead sweep must use 0, or it measures the test harness. */
+#ifndef SAMPLE_CHECKSUM
+#define SAMPLE_CHECKSUM  1
+#endif
+
 /* Per-U54 sample storage in L2-LIM: 4096 slots x 64 bytes = 256 KiB per hart. */
 #define SAMPLE_SLOTS     4096
 

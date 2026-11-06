@@ -27,6 +27,7 @@ GDB   ?= $(shell command -v gdb-multiarch >/dev/null 2>&1 && echo gdb-multiarch 
 
 BUILD := build
 HPM_BACKEND ?= qemu
+SAMPLE_CHECKSUM ?= 1
 HOSTCC ?= cc
 ELF   := $(BUILD)/hartwatch.elf
 
@@ -36,7 +37,7 @@ ELF   := $(BUILD)/hartwatch.elf
 ARCH   := -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax
 CFLAGS := $(ARCH) -std=gnu11 -O2 -g -Wall -Wextra \
           -ffreestanding -fno-pic -fno-stack-protector -ffunction-sections -fdata-sections \
-          -Ifw/src
+          -Ifw/src -DSAMPLE_CHECKSUM=$(SAMPLE_CHECKSUM)
 ASFLAGS := $(ARCH) -g -Ifw
 LDFLAGS := $(ARCH) -nostdlib -nostartfiles -static -Wl,--gc-sections -Wl,--no-relax -Wl,--no-warn-rwx-segments \
            -Wl,-T,fw/linker.ld -Wl,-Map,$(BUILD)/hartwatch.map
@@ -101,12 +102,16 @@ run: $(ELF)
 	$(QEMU) $(QEMU_FLAGS)
 
 # Host tests run under ASan and UBSan, so memory errors fail them too.
+HOST_FLAGS := -std=gnu11 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined \
+              -fno-sanitize-recover=all -Ifw/src
+HOST_SRCS  := fw/tests/test_sample.c fw/tests/hpm_fake.c fw/src/sample.c fw/src/sampler.c
+
 host-test:
 	@mkdir -p $(BUILD)
-	@$(HOSTCC) -std=gnu11 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined \
-	    -fno-sanitize-recover=all -Ifw/src fw/tests/test_sample.c fw/tests/hpm_fake.c \
-	    fw/src/sample.c fw/src/sampler.c -o $(BUILD)/test_sample
+	@$(HOSTCC) $(HOST_FLAGS) -DSAMPLE_CHECKSUM=1 $(HOST_SRCS) -o $(BUILD)/test_sample
+	@$(HOSTCC) $(HOST_FLAGS) -DSAMPLE_CHECKSUM=0 $(HOST_SRCS) -o $(BUILD)/test_sample_nochk
 	@$(BUILD)/test_sample
+	@$(BUILD)/test_sample_nochk
 
 test: host-test $(ELF)
 	@scripts/run_test.sh $(ELF) "$(QEMU) $(QEMU_FLAGS)"

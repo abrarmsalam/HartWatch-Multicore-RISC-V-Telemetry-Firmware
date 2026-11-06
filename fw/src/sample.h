@@ -15,7 +15,7 @@ typedef struct {
     uint32_t seq;               /* counts every sample taken, including dropped ones      */
     uint8_t  hart;
     uint8_t  flags;             /* reserved, 0                                            */
-    uint16_t check;             /* sample_checksum() of everything else                   */
+    uint16_t check;             /* sample_checksum() if SAMPLE_CHECKSUM, otherwise 0       */
     uint64_t mtime;             /* sample time on the clock shared by all harts           */
     uint64_t mcycle;
     uint64_t minstret;

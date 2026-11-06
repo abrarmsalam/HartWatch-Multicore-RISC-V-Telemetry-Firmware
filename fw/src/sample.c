@@ -37,15 +37,21 @@ void sample_fill(sample_t *s, uint32_t seq, uint8_t hart, const hpm_snapshot_t *
     for (unsigned i = 0; i < HPM_SLOTS; i++)
         s->hpm[i] = snap->hpm[i];
     s->mepc = mepc;
+#if SAMPLE_CHECKSUM
     s->check = sample_checksum(s);
+#else
+    s->check = 0;
+#endif
 }
 
 unsigned sample_check_next(const sample_t *prev, const sample_t *cur, uint8_t hart)
 {
     unsigned err = 0;
 
+#if SAMPLE_CHECKSUM
     if (cur->check != sample_checksum(cur))
         err |= SAMPLE_ERR_CHECKSUM;
+#endif
     if (cur->hart != hart)
         err |= SAMPLE_ERR_HART;
     if (prev) {

@@ -22,12 +22,15 @@ temporary. Day 3 replaces it with the single-producer/single-consumer ring.
 - **`seq` advances even when a sample is dropped.** A gap in `seq` therefore shows exactly how many were lost.
 - **Drop when full, never block and never overwrite.** The hart being measured must not wait for telemetry.
 - **No CSRs in `sample.c`**, so host tests can check it under AddressSanitizer and UBSan.
-- **`check` is a cheap rotate-and-xor.** The rotate makes position matter, so two swapped fields are caught, which a
-  plain xor would miss. It catches corrupted or torn records. It is not a strong hash: two flipped bits can cancel out.
+- **`check` is test instrumentation, not part of the telemetry design.** It exists so tests can catch corrupted or torn
+  records. Build with `SAMPLE_CHECKSUM=0` and the ISR does no checksum work and `check` stays 0. Tests use 1; the overhead
+  sweep must use 0, or it measures the test harness.
+- **It is a cheap rotate-and-xor.** The rotate makes position matter, so two swapped fields are caught, which a plain
+  xor would miss. It is not a strong hash: two flipped bits can cancel out.
 
 ## How it is tested
 
-- `make host-test`: 578 checks, including all 512 single-bit flips, a checksum value computed separately in Python,
+- `make host-test`: built twice, with and without `SAMPLE_CHECKSUM`. With it there are 578 checks, including all 512 single-bit flips, a checksum value computed separately in Python,
   a canary slot past the end of the log, and `seq` wrapping from `0xFFFFFFFF` to 0.
 - `make test`: four U54s run different workloads and hart 0 validates every record: checksum, hart, `seq` order, and
   that `mtime`, `mcycle` and `minstret` never go backwards. It also checks that `mepc` points into the right workload and
@@ -36,8 +39,8 @@ temporary. Day 3 replaces it with the single-producer/single-consumer ring.
 
 ## What could go wrong
 
-- **The ISR gets too slow.** Each tick now does a snapshot, a checksum and 64 bytes of stores. The cost is not measured
-  yet. It is part of the Day 6 overhead sweep.
+- **The ISR gets too slow.** Each tick does a snapshot and 64 bytes of stores, plus a checksum in test builds. The cost
+  is not measured yet. It is part of the Day 6 overhead sweep.
 - **Reading a record while it is being written.** Hart 0 only reads after `done` is set, so that cannot happen today.
   Day 3's ring has to solve this properly with store-release and load-acquire.
 - **The log fills up.** After 4096 samples everything is dropped and counted. Day 3's drain fixes this.

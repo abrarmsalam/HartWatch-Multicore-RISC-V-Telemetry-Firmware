@@ -69,9 +69,14 @@ static void test_fill_copies_every_field(void)
     CHECK(s.hpm[1] == SNAP.hpm[1]);
     CHECK(s.hpm[2] == SNAP.hpm[2]);
     CHECK(s.mepc == 0x80001234);
+#if SAMPLE_CHECKSUM
     CHECK(s.check == sample_checksum(&s));
+#else
+    CHECK(s.check == 0);
+#endif
 }
 
+#if SAMPLE_CHECKSUM
 static void test_checksum_golden(void)
 {
     sample_t s;
@@ -101,6 +106,14 @@ static void test_checksum_catches_swapped_fields(void)
     s.minstret = t;
     CHECK(sample_check_next(NULL, &s, 2) & SAMPLE_ERR_CHECKSUM);
 }
+#else
+static void test_corruption_is_not_detected_without_checksum(void)
+{
+    sample_t s = make_sample(7, 1000);
+    s.mcycle ^= 1;
+    CHECK(sample_check_next(NULL, &s, 2) == 0);     /* documents the cost of turning it off */
+}
+#endif
 
 static void test_check_next_accepts_good_stream(void)
 {
@@ -110,6 +123,16 @@ static void test_check_next_accepts_good_stream(void)
 
     sample_t last = make_sample(0xFFFFFFFF, 1000), first = make_sample(0, 2000);
     CHECK(sample_check_next(&last, &first, 2) == 0);    /* seq wrap is not a gap */
+}
+
+/* After editing a field on purpose, make the record look genuine again. */
+static void reseal(sample_t *s)
+{
+#if SAMPLE_CHECKSUM
+    s->check = sample_checksum(s);
+#else
+    (void)s;
+#endif
 }
 
 static void test_check_next_rejects_bad_stream(void)
@@ -127,17 +150,17 @@ static void test_check_next_rejects_bad_stream(void)
 
     sample_t back = make_sample(8, 2000);
     back.mtime = a.mtime - 1;
-    back.check = sample_checksum(&back);
+    reseal(&back);
     CHECK(sample_check_next(&a, &back, 2) == SAMPLE_ERR_MTIME);
 
     back = make_sample(8, 2000);
     back.mcycle = a.mcycle - 1;
-    back.check = sample_checksum(&back);
+    reseal(&back);
     CHECK(sample_check_next(&a, &back, 2) == SAMPLE_ERR_MCYCLE);
 
     back = make_sample(8, 2000);
     back.minstret = a.minstret - 1;
-    back.check = sample_checksum(&back);
+    reseal(&back);
     CHECK(sample_check_next(&a, &back, 2) == SAMPLE_ERR_MINSTRET);
 }
 
@@ -214,12 +237,16 @@ static void test_tick_uses_backend_and_the_right_hart(void)
 
 int main(void)
 {
-    printf("host unit tests (backend: %s)\n", hpm_backend_name());
+    printf("host unit tests (backend: %s, SAMPLE_CHECKSUM=%d)\n", hpm_backend_name(), SAMPLE_CHECKSUM);
     RUN(test_layout);
     RUN(test_fill_copies_every_field);
+#if SAMPLE_CHECKSUM
     RUN(test_checksum_golden);
     RUN(test_checksum_catches_every_single_bit_flip);
     RUN(test_checksum_catches_swapped_fields);
+#else
+    RUN(test_corruption_is_not_detected_without_checksum);
+#endif
     RUN(test_check_next_accepts_good_stream);
     RUN(test_check_next_rejects_bad_stream);
     RUN(test_log_stores_in_order);
