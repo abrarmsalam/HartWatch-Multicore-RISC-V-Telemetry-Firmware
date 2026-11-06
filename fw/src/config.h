@@ -20,7 +20,7 @@
 #define CLINT_BASE       0x02000000   /* core-local interruptor: timer + software IRQ */
 #define L2LIM_BASE       0x08000000   /* 32 MiB of fast on-chip RAM (sample storage) */
 #define UART0_BASE       0x10010000   /* console */
-#define UART1_BASE       0x10011000   /* telemetry stream (Day 3) */
+#define UART1_BASE       0x10011000   /* telemetry stream */
 #define GPIO_BASE        0x10060000   /* pin 10 = "reboot"; we abuse it to exit QEMU */
 
 /* DTB says timebase-frequency = 0xf4240 = 1,000,000 Hz: mtime ticks once per microsecond. */
@@ -39,6 +39,11 @@
 /* Samples per wire frame. Larger frames spread the cost of the first, absolute sample. */
 #ifndef FRAME_SAMPLES
 #define FRAME_SAMPLES    16
+#endif
+
+/* The E51 wakes this often to drain. 16 ms holds one full frame per hart at 1 kHz. */
+#ifndef DRAIN_PERIOD_US
+#define DRAIN_PERIOD_US  16000
 #endif
 
 /* One ring per U54 in L2-LIM. Must be a power of two. 4096 slots x 64 bytes = 256 KiB per hart. */

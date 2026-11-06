@@ -4,6 +4,7 @@
 #   make run        boot it in QEMU (console on this terminal; exits by itself)
 #   make test       host unit tests, then `run` with a timeout and a pass/fail verdict
 #   make host-test  only the host unit tests
+#   make test-drops boot a build that overflows its rings and check the drops are accounted for
 #   make debug      boot QEMU frozen, waiting for GDB on port 1234 (use `make gdb` in a 2nd terminal)
 #   make gdb        attach GDB to a running `make debug`
 #   make dtb        dump QEMU's hardware description (device tree) to build/sifive_u.dts
@@ -38,7 +39,7 @@ ELF   := $(BUILD)/hartwatch.elf
 ARCH   := -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax
 CFLAGS := $(ARCH) -std=gnu11 -O2 -g -Wall -Wextra \
           -ffreestanding -fno-pic -fno-stack-protector -ffunction-sections -fdata-sections \
-          -Ifw/src -DSAMPLE_CHECKSUM=$(SAMPLE_CHECKSUM)
+          -Ifw/src -DSAMPLE_CHECKSUM=$(SAMPLE_CHECKSUM) $(FW_DEFS)
 ASFLAGS := $(ARCH) -g -Ifw
 LDFLAGS := $(ARCH) -nostdlib -nostartfiles -static -Wl,--gc-sections -Wl,--no-relax -Wl,--no-warn-rwx-segments \
            -Wl,-T,fw/linker.ld -Wl,-Map,$(BUILD)/hartwatch.map
@@ -56,11 +57,13 @@ OBJS   := $(BUILD)/boot.o $(BUILD)/workloads.o $(BUILD)/hpm_$(HPM_BACKEND).o \
 QEMU_TIMING ?= -icount shift=0,sleep=off
 QEMU_EXTRA  ?=
 SMP ?= 5
+# Serial port 0 (UART0) is the console; serial port 1 (UART1) is the telemetry stream.
+TELEMETRY  := $(BUILD)/telemetry.bin
 QEMU_BASE  := -machine sifive_u -smp $(SMP) -m 256M -nographic -bios none -no-reboot \
-              $(QEMU_TIMING) $(QEMU_EXTRA)
+              -serial mon:stdio -serial file:$(TELEMETRY) $(QEMU_TIMING) $(QEMU_EXTRA)
 QEMU_FLAGS := $(QEMU_BASE) -kernel $(ELF)
 
-.PHONY: all run test host-test debug gdb dtb disasm size clean probe tickgap
+.PHONY: all run test test-drops host-test debug gdb dtb disasm size clean probe tickgap
 all: $(ELF) size
 
 $(ELF): $(OBJS) fw/linker.ld
@@ -103,7 +106,7 @@ tickgap: $(BUILD)/boot.o $(BUILD)/workloads.o $(BUILD)/hpm_$(HPM_BACKEND).o $(BU
          $(BUILD)/power.o $(BUILD)/uart.o $(BUILD)/timer.o $(BUILD)/trap.o $(BUILD)/sample.o
 	@$(CC) $(CFLAGS) $(GAP) -c fw/probe/tickgap.c -o $(BUILD)/tickgap.o
 	@$(CC) $(LDFLAGS) $^ $(BUILD)/tickgap.o -lgcc -o $(TICKGAP_ELF)
-	@EXPECT="GAP DONE" TEST_TIMEOUT=120 scripts/run_test.sh $(TICKGAP_ELF) "$(QEMU) $(QEMU_BASE) -kernel $(TICKGAP_ELF)"
+	@EXPECT="GAP DONE" TEST_TIMEOUT=120 scripts/run_test.sh $(TICKGAP_ELF) "$(QEMU) $(QEMU_BASE) -kernel $(TICKGAP_ELF)" $(BUILD)
 
 -include $(OBJS:.o=.d) $(BUILD)/probe_main.d
 
@@ -112,6 +115,18 @@ size: $(ELF)
 
 run: $(ELF)
 	$(QEMU) $(QEMU_FLAGS)
+
+# A build whose rings are too small for its drain period, so samples really are dropped.
+# Proves the drop path end to end, including the counts the decoder reads from frames.
+test-drops:
+	@$(MAKE) --no-print-directory test BUILD=build/drops TEST_TIMEOUT=$(TEST_TIMEOUT) \
+	    FW_DEFS="-DRING_SLOTS=32 -DDRAIN_PERIOD_US=100000 -DEXPECT_DROPS=1" \
+	    CHECK_FLAGS="--attempts 2000 --allow-drops"
+
+# Extra -D flags for firmware builds, e.g. FW_DEFS="-DSAMPLE_HZ=100 -DTEST_TICKS=200".
+# Use a separate BUILD= for each, because make does not notice a changed flag.
+FW_DEFS ?=
+CHECK_FLAGS ?= --attempts 2000
 
 # Host tests run under ASan and UBSan, so memory errors fail them too.
 HOST_FLAGS := -std=gnu11 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined \
@@ -136,10 +151,11 @@ host-test:
 	@$(BUILD)/test_ring_tsan 2000000 64
 
 test: host-test $(ELF)
-	@TEST_TIMEOUT=$(TEST_TIMEOUT) scripts/run_test.sh $(ELF) "$(QEMU) $(QEMU_FLAGS)"
+	@TEST_TIMEOUT=$(TEST_TIMEOUT) scripts/run_test.sh $(ELF) "$(QEMU) $(QEMU_FLAGS)" $(BUILD)
+	@python3 host/check_stream.py $(TELEMETRY) $(CHECK_FLAGS)
 
 probe: $(PROBE_ELF)
-	@EXPECT="PROBE DONE" TEST_TIMEOUT=120 scripts/run_test.sh $(PROBE_ELF) "$(QEMU) $(QEMU_BASE) -kernel $(PROBE_ELF)"
+	@EXPECT="PROBE DONE" TEST_TIMEOUT=120 scripts/run_test.sh $(PROBE_ELF) "$(QEMU) $(QEMU_BASE) -kernel $(PROBE_ELF)" $(BUILD)
 
 debug: $(ELF)
 	@echo ">>> QEMU is paused. In another terminal run:  make gdb"
