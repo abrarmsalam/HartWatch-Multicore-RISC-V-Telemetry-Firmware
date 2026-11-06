@@ -117,7 +117,7 @@ make test rc=0
 | Run | Commit | Result |
 | --- | --- | --- |
 | 42172406712 | `4a367c9` | success, both jobs |
-| 42172788467 | `fc19fa0` | `completed cancelled` at the time of writing |
+| 42172788467 | `fc19fa0` | `test-and-gate` success. `qemu-host-runtime` cancelled after about 15 minutes in its `apt` install step, which matches its `timeout-minutes` (inferred: an install stall, not a code failure) |
 | 42173085324 | `b4b4166` | success, both jobs: 88 pytest passed, gate passed, `make test` 504 frames and 126,723 bytes |
 
 ### Gate demonstration
@@ -355,7 +355,7 @@ Please don't say these:
 ## 7. Where things are
 
 - **Branch:** `days-4-7`, pushed to https://github.com/abrarmsalam/HartWatch-Multicore-RISC-V-Telemetry-Firmware
-- **Last code commit:** `b4b4166`. The commit that adds this report sits on top of it. `git log -1 days-4-7` gives its hash.
+- **Last code commit:** `b4b4166`. Only documentation commits follow it, and CI on those had not finished when this was written. `git log -1 days-4-7` gives the tip.
 - **No tag was created.**
 
 **Review first, in this order:**
