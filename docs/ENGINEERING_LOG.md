@@ -86,8 +86,9 @@ so no-icount timings are not comparable with Day 1's. Raw output of every number
 - **Decision (owner, Option A).**
   - Primary gate metric: `minstret` for a fixed amount of work on one U54 with the E51 asleep, under icount. This is
     valid only in that setup, where it equals the true count to within 16 instructions.
-  - Plain 3% threshold, no Mann-Whitney U in the icount gate: repeat runs are identical, so variance is zero and a rank
-    test has nothing to work with.
+  - DTLB read and write misses per thousand instructions are also gated.
+  - Plain threshold (default 3%), no Mann-Whitney U in the icount gate: repeat runs are identical, so variance is zero
+    and a rank test has nothing to work with.
   - Mann-Whitney U is kept only for a separate no-icount wall-clock job, labelled as measuring QEMU host runtime.
   - Real IPC stays in `hpm_sifive`, documented as untested on hardware.
   - No TCG plugin and no real-hardware path.
@@ -120,8 +121,54 @@ so no-icount timings are not comparable with Day 1's. Raw output of every number
 - An old selector keeps counting after a new one is written, until 0 is written (`riscv_pmu_update_event_map` only
   removes a mapping for value 0). `hpm_qemu` must write 0 before changing a selector.
 
+### Finding 4 -- sampling works, and it changes what the counters show
+
+- **Decision (owner).** 64-byte `sample_t`, one cache line per slot, `mtime` recorded in the ISR. Layout and reasons are
+  in `docs/DESIGN.md`.
+- **Observed.** `make test`: each U54 runs its own workload through 2000 ticks at 1 kHz. All 8000 records passed
+  validation in 3 `-icount` runs and 3 no-icount runs, with 0 drops. The 3 `-icount` runs were identical. Records were
+  written to and read back from L2-LIM. Wall time for one `make test` under `-icount` was 18.7 s, against a 30 s timeout.
+
+  | Hart | Workload | `mepc` in workload | DTLB read | DTLB write | ITLB |
+  | --- | --- | --- | --- | --- | --- |
+  | 1 | alu | 1997 / 2000 | 64 | 96 | 0 |
+  | 2 | branch | 1999 / 2000 | 0 | 32 | 0 |
+  | 3 | load | 1997 / 2000 | 102,520,026 | 5,997 | 26,147 |
+  | 4 | store | 1996 / 2000 | 94,536 | 91,048,484 | 26,122 |
+
+  (`-icount`, first to last sample. Without icount, `mepc` in workload was 1884-1998 of 2000.)
+- **Surprise 1: tick gaps widened.** Under `-icount`, gaps were 999-1001 us with idle U54s on Day 1 and in the baseline
+  today. With busy U54s they are 873-1098 us. Mean is still 999-1000 us and 0 ticks are late.
+  **Hypothesis (not tested):** QEMU's round-robin scheduling of busy harts delays when a tick is noticed.
+- **Surprise 2: read and write misses now cross over slightly.** The probe, with no ISR running, showed exactly 0 on
+  the other event. With sampling on, the store hart shows 94,536 read misses, about 0.1% of its write misses.
+  **Hypothesis (not tested):** the ISR's own memory accesses miss because the workload evicted their TLB entries.
+- **Surprise 3: ITLB miss moved for the first time.** About 26,000 on the load and store harts, 0 on alu and branch.
+  The probe's reading was 0-23. **Hypothesis (not tested):** the same eviction, hitting the code's TLB entries. So the
+  ITLB slot responds to something, but not yet to code footprint, which is what it would normally be for.
+- **No-icount reminder.** Gaps ranged from 1 us to 126,741 us and 18-113 ticks per hart were late. Miss counts were lower
+  than under `-icount` and varied between runs. The time-based test limits passed, but these runs say nothing about
+  timing quality.
+
+### Do the tests catch bugs?
+
+Bugs were planted on purpose in a throwaway copy:
+
+| Planted bug | Caught by |
+| --- | --- |
+| Checksum without the rotate | Host test |
+| Drop-on-full removed | Host test (UBSan) |
+| `seq` not advanced on a drop | Host test |
+| `seq` skips a value | Firmware self-test |
+| `mepc` lost | Host test and firmware self-test |
+| Read and write selectors swapped | Firmware self-test, **only after a fix** |
+
 ### Defects
 
+- Self-test hole: swapped read/write selectors passed `make test`, because the check compared the load hart with the alu
+  hart. Fixed by comparing each hart's own read and write misses. Found only by planting the bug.
+- First attempt at planting the `mepc` bug failed for an unrelated reason (a compile error from an unused parameter), so
+  it proved nothing and was redone.
 - First probe run: `%-9s` printed literally because `kprintf` has no `-` flag, shifting columns. Fixed by using `%9s`.
 - First probe run: reading `mcountinhibit` trapped and left garbage in the result (`0x5 reads back 0xa`). Fixed by
   reporting traps per CSR.
