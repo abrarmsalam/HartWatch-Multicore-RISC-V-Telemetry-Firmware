@@ -1,0 +1,94 @@
+# HartWatch firmware build.
+#
+#   make            build build/hartwatch.elf
+#   make run        boot it in QEMU (console on this terminal; exits by itself)
+#   make test       like `run`, but with a timeout and a pass/fail verdict
+#   make debug      boot QEMU frozen, waiting for GDB on port 1234 (use `make gdb` in a 2nd terminal)
+#   make gdb        attach GDB to a running `make debug`
+#   make dtb        dump QEMU's hardware description (device tree) to build/sifive_u.dts
+#   make disasm     disassemble the firmware to build/hartwatch.lst
+#   make clean
+#
+# If your cross-compiler has a different prefix (e.g. Homebrew's riscv64-elf-gcc):
+#   make CROSS=riscv64-elf-
+
+CROSS ?= riscv64-unknown-elf-
+CC    := $(CROSS)gcc
+OBJDUMP := $(CROSS)objdump
+SIZE  := $(CROSS)size
+
+QEMU  ?= qemu-system-riscv64
+GDB   ?= $(shell command -v gdb-multiarch >/dev/null 2>&1 && echo gdb-multiarch || echo $(CROSS)gdb)
+
+BUILD := build
+ELF   := $(BUILD)/hartwatch.elf
+
+# rv64imac works on BOTH core types: the E51 is rv64imac, the U54s are rv64imafdc.
+# -mcmodel=medany : code lives at 0x80000000, outside the +/-2 GiB "medlow" window.
+# -mno-relax      : we never initialise the gp register, so forbid gp-relative linker relaxation.
+ARCH   := -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax
+CFLAGS := $(ARCH) -std=gnu11 -O2 -g -Wall -Wextra \
+          -ffreestanding -fno-pic -fno-stack-protector -ffunction-sections -fdata-sections \
+          -Ifw/src
+ASFLAGS := $(ARCH) -g -Ifw
+LDFLAGS := $(ARCH) -nostdlib -nostartfiles -static -Wl,--gc-sections -Wl,--no-relax -Wl,--no-warn-rwx-segments \
+           -Wl,-T,fw/linker.ld -Wl,-Map,$(BUILD)/hartwatch.map
+
+C_SRCS := $(wildcard fw/src/*.c)
+OBJS   := $(BUILD)/boot.o $(patsubst fw/src/%.c,$(BUILD)/%.o,$(C_SRCS))
+
+# QEMU: 1 E51 + 4 U54 = 5 harts, 256 MiB RAM, no firmware (we ARE the firmware),
+# and treat a reset request as "exit".
+#
+# -icount shift=0,sleep=off : deterministic virtual time (1 instruction = 1 ns). Without it,
+# QEMU ties timer interrupts to the host's real clock and tick spacing jitters by milliseconds
+# depending on how busy your computer is. Use `make run QEMU_TIMING=` to turn it off.
+QEMU_TIMING ?= -icount shift=0,sleep=off
+QEMU_EXTRA  ?=
+QEMU_FLAGS := -machine sifive_u -smp 5 -m 256M -nographic -bios none -no-reboot \
+              $(QEMU_TIMING) $(QEMU_EXTRA) -kernel $(ELF)
+
+.PHONY: all run test debug gdb dtb disasm size clean
+all: $(ELF) size
+
+$(ELF): $(OBJS) fw/linker.ld
+	$(CC) $(LDFLAGS) $(OBJS) -lgcc -o $@
+
+$(BUILD)/boot.o: fw/boot.S fw/src/config.h
+	@mkdir -p $(BUILD)
+	$(CC) $(ASFLAGS) -c $< -o $@
+
+$(BUILD)/%.o: fw/src/%.c
+	@mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
+
+-include $(OBJS:.o=.d)
+
+size: $(ELF)
+	@$(SIZE) $(ELF)
+
+run: $(ELF)
+	$(QEMU) $(QEMU_FLAGS)
+
+test: $(ELF)
+	@scripts/run_test.sh $(ELF) "$(QEMU) $(QEMU_FLAGS)"
+
+debug: $(ELF)
+	@echo ">>> QEMU is paused. In another terminal run:  make gdb"
+	$(QEMU) $(QEMU_FLAGS) -S -gdb tcp::1234
+
+gdb: $(ELF)
+	$(GDB) -q $(ELF) -ex "set architecture riscv:rv64" -ex "target remote :1234"
+
+dtb:
+	@mkdir -p $(BUILD)
+	$(QEMU) -machine sifive_u,dumpdtb=$(BUILD)/sifive_u.dtb -smp 5 -m 256M -nographic
+	dtc -I dtb -O dts $(BUILD)/sifive_u.dtb -o $(BUILD)/sifive_u.dts
+	@echo "wrote $(BUILD)/sifive_u.dts"
+
+disasm: $(ELF)
+	$(OBJDUMP) -d -S $(ELF) > $(BUILD)/hartwatch.lst
+	@echo "wrote $(BUILD)/hartwatch.lst"
+
+clean:
+	rm -rf $(BUILD)
