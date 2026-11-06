@@ -25,6 +25,12 @@ wl_alu:
     xor     t1, t1, t0
     add     t0, t0, t1
     xor     t1, t1, t0
+#ifdef WL_SLOWDOWN_ALU              /* deliberate regression, used to prove the CI gate fails */
+    nop
+#endif
+#ifdef WL_SLOWDOWN_ALU_ADD          /* the same, with an instruction QEMU must really execute */
+    add     t2, t2, t1
+#endif
     addi    a0, a0, -1
     bnez    a0, 1b
     ret

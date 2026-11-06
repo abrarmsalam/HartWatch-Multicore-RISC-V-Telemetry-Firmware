@@ -315,3 +315,47 @@ Planted in a throwaway copy, beyond the ring table in `docs/ring.md`:
 - The image took free disk from 15 GiB to 8.9 GiB, close to the 8 GiB floor. See D2.
 - The DB test file was first collected by `make test`, where no capture exists yet. It is now excluded there.
 
+---
+
+## Day 6
+
+Done before Day 5, as the owner ordered. Full tables are in `docs/benchmarks.md`. All measured under `-icount` unless stated.
+
+### Finding 1 -- the gate works
+
+- **Result.** Clean code passes. One `nop` in the arithmetic loop fails at +12.500%. A stride change with the same instruction
+  count fails on the DTLB metrics at about +100%. Clean code passes again. Repeat runs show +0.000%.
+
+### Finding 2 -- ISR cost and overhead
+
+- **Measured.** 112 instructions per tick for trap and timer, 194 with sampling, 250 with the checksum. Overhead is the same on all six
+  workloads. It crosses 1% between 50,000 Hz (0.9795%) and 52,631.6 Hz (1.0315%).
+- **Limit.** That is a share of retired instructions on QEMU. It is not a time overhead on silicon.
+
+### Finding 3 -- the E51 is the first limit
+
+- **Measured.** Drain costs 861.7-969.1 instructions per sample with the checksum off. CRC 20.01 and COBS 13.04 instructions per byte.
+  With four harts ticking, no drops up to 20 kHz, then 16.99-19.20% at 50 kHz and 53.59-58.41% at 100 kHz.
+- **Consequence.** The system loses samples well below the rate at which the workload hart reaches 1% overhead.
+
+### Finding 4 -- the wall-clock job misses small changes
+
+- **Observed.** Adding a `nop` to the loop (+12.5% instructions) changed host runtime by +0.56%.
+- **Hypothesis.** QEMU emits no host code for a `nop`.
+- **Test.** Replaced it with a real `add`: +0.30%.
+- **Result.** Hypothesis rejected. Cause not explained. 25% more iterations did register: +23.04%, p below 0.000001.
+
+### Finding 5 -- extra misses scale with ticks
+
+- **Observed.** On `load4k` and `store4k`, extra DTLB read misses were 3.0 per tick at each rate. This supports the inference that
+  the ISR's own accesses miss, but which access is still not isolated.
+- **Not explained.** Extra ITLB misses do not scale the same way, and on `load64` at 100 kHz they were negative (-105).
+
+### Defects
+
+- A requested 52,632 Hz became an 18 us period (55,556 Hz) through integer division. Noticed because the achieved rate was
+  reported. Rerun by exact period. This is why tables show achieved rates.
+- Two of my own unit-test expectations in `test_wallclock.py` were wrong: one case was just over 3%, and one "not significant"
+  case was significant. The code was right.
+- `actionlint` was unavailable. See D3.
+

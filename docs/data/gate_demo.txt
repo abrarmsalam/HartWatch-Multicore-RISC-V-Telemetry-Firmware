@@ -1,0 +1,74 @@
+### 1. Clean code
+workload  metric           baseline         current          change   (threshold +3.0%)
+arith     minstret          40000015.0000    40000015.0000    +0.000%  ok
+arith     dtlb_read_pki            0.0000           0.0000        n/a  ok
+arith     dtlb_write_pki           0.0000           0.0000        n/a  ok
+branch    minstret          48000016.0000    48000016.0000    +0.000%  ok
+branch    dtlb_read_pki            0.0000           0.0000        n/a  ok
+branch    dtlb_write_pki           0.0000           0.0000        n/a  ok
+load4k    minstret          35000021.0000    35000021.0000    +0.000%  ok
+load4k    dtlb_read_pki          142.8571         142.8571    +0.000%  ok
+load4k    dtlb_write_pki           0.0000           0.0000        n/a  ok
+load64    minstret          35000020.0000    35000020.0000    +0.000%  ok
+load64    dtlb_read_pki            2.2322           2.2322    +0.000%  ok
+load64    dtlb_write_pki           0.0000           0.0000        n/a  ok
+store4k   minstret          35000021.0000    35000021.0000    +0.000%  ok
+store4k   dtlb_read_pki            0.0000           0.0000    +0.000%  ok
+store4k   dtlb_write_pki         142.8571         142.8571    +0.000%  ok
+store64   minstret          35000020.0000    35000020.0000    +0.000%  ok
+store64   dtlb_read_pki            0.0000           0.0000    +0.000%  ok
+store64   dtlb_write_pki           2.2321           2.2321    +0.000%  ok
+GATE PASS: 18 metrics within +3.0%
+exit code: 0
+
+### 2. Deliberate slowdown: one nop in the arithmetic loop (-DWL_SLOWDOWN_ALU)
+workload  metric           baseline         current          change   (threshold +3.0%)
+arith     minstret          40000015.0000    45000015.0000   +12.500%  FAIL
+arith     dtlb_read_pki            0.0000           0.0000        n/a  ok
+arith     dtlb_write_pki           0.0000           0.0000        n/a  ok
+branch    minstret          48000016.0000    48000016.0000    +0.000%  ok
+branch    dtlb_read_pki            0.0000           0.0000        n/a  ok
+branch    dtlb_write_pki           0.0000           0.0000        n/a  ok
+load4k    minstret          35000021.0000    35000021.0000    +0.000%  ok
+load4k    dtlb_read_pki          142.8571         142.8571    +0.000%  ok
+load4k    dtlb_write_pki           0.0000           0.0000        n/a  ok
+load64    minstret          35000020.0000    35000020.0000    +0.000%  ok
+load64    dtlb_read_pki            2.2322           2.2322    +0.000%  ok
+load64    dtlb_write_pki           0.0000           0.0000        n/a  ok
+store4k   minstret          35000021.0000    35000021.0000    +0.000%  ok
+store4k   dtlb_read_pki            0.0000           0.0000    +0.000%  ok
+store4k   dtlb_write_pki         142.8571         142.8571    +0.000%  ok
+store64   minstret          35000020.0000    35000020.0000    +0.000%  ok
+store64   dtlb_read_pki            0.0000           0.0000    +0.000%  ok
+store64   dtlb_write_pki           2.2321           2.2321    +0.000%  ok
+GATE FAIL: 1 metric(s) over threshold, 0 problem(s)
+make: *** [Makefile:150: gate] Error 1
+exit code: 2
+
+### 3. Regression with the same instruction count: stride 64 -> 128 bytes (-DBENCH_SMALL_STRIDE=128)
+workload  metric           baseline         current          change   (threshold +3.0%)
+arith     minstret          40000015.0000    40000015.0000    +0.000%  ok
+arith     dtlb_read_pki            0.0000           0.0000        n/a  ok
+arith     dtlb_write_pki           0.0000           0.0000        n/a  ok
+branch    minstret          48000016.0000    48000016.0000    +0.000%  ok
+branch    dtlb_read_pki            0.0000           0.0000        n/a  ok
+branch    dtlb_write_pki           0.0000           0.0000        n/a  ok
+load4k    minstret          35000021.0000    35000021.0000    +0.000%  ok
+load4k    dtlb_read_pki          142.8571         142.8570    -0.000%  ok
+load4k    dtlb_write_pki           0.0000           0.0000        n/a  ok
+load64    minstret          35000020.0000    35000020.0000    +0.000%  ok
+load64    dtlb_read_pki            2.2322           4.4643   +99.999%  FAIL
+load64    dtlb_write_pki           0.0000           0.0000        n/a  ok
+store4k   minstret          35000021.0000    35000021.0000    +0.000%  ok
+store4k   dtlb_read_pki            0.0000           0.0000    +0.000%  ok
+store4k   dtlb_write_pki         142.8571         142.8570    -0.000%  ok
+store64   minstret          35000020.0000    35000020.0000    +0.000%  ok
+store64   dtlb_read_pki            0.0000           0.0000    +0.000%  ok
+store64   dtlb_write_pki           2.2321           4.4643  +100.000%  FAIL
+GATE FAIL: 2 metric(s) over threshold, 0 problem(s)
+make: *** [Makefile:150: gate] Error 1
+exit code: 2
+
+### 4. Clean code again
+GATE PASS: 18 metrics within +3.0%
+exit code: 0

@@ -1,0 +1,32 @@
+{
+  "arith": {
+    "dtlb_read_pki": 0.0,
+    "dtlb_write_pki": 0.0,
+    "minstret": 40000015.0
+  },
+  "branch": {
+    "dtlb_read_pki": 0.0,
+    "dtlb_write_pki": 0.0,
+    "minstret": 48000016.0
+  },
+  "load4k": {
+    "dtlb_read_pki": 142.85708571432,
+    "dtlb_write_pki": 0.0,
+    "minstret": 35000021.0
+  },
+  "load64": {
+    "dtlb_read_pki": 2.232170153045627,
+    "dtlb_write_pki": 0.0,
+    "minstret": 35000020.0
+  },
+  "store4k": {
+    "dtlb_read_pki": 2.8571411428581713e-05,
+    "dtlb_write_pki": 142.85705714290856,
+    "minstret": 35000021.0
+  },
+  "store64": {
+    "dtlb_read_pki": 2.857141224490729e-05,
+    "dtlb_write_pki": 2.232141581633382,
+    "minstret": 35000020.0
+  }
+}

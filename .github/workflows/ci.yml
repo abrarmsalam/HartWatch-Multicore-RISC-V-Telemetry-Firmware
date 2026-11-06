@@ -1,0 +1,51 @@
+# Build, test and gate. See docs/benchmarks.md for what the gate does and does not measure.
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the pinned toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            gcc-riscv64-unknown-elf binutils-riscv64-unknown-elf qemu-system-misc \
+            python3-pytest python3-pyelftools python3-fastapi python3-httpx
+      - name: Show tool versions
+        run: |
+          qemu-system-riscv64 --version | head -1
+          riscv64-unknown-elf-gcc --version | head -1
+      - name: Build and test
+        run: make test TEST_TIMEOUT=300
+      - name: Boot a build that drops samples
+        run: make test-drops TEST_TIMEOUT=300
+      - name: Gate on fixed-work counters
+        run: make gate
+
+  # Not a gate on target performance: this measures QEMU host runtime on a shared runner, so it
+  # is informational and cannot fail the workflow.
+  qemu-host-runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            gcc-riscv64-unknown-elf binutils-riscv64-unknown-elf qemu-system-misc
+      - name: Compare two builds of the same code
+        run: |
+          make -s bench-elf BUILD=build/wc/base BENCH="-DBENCH_MODE=0 -DBENCH_ONLY=0 -DBENCH_SCALE=40"
+          make -s bench-elf BUILD=build/wc/same BENCH="-DBENCH_MODE=0 -DBENCH_ONLY=0 -DBENCH_SCALE=40"
+          python3 host/wallclock.py build/wc/base/bench.elf build/wc/same/bench.elf

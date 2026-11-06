@@ -4,6 +4,8 @@
 #   make run        boot it in QEMU (console on this terminal; exits by itself)
 #   make test       host unit tests, then `run` with a timeout and a pass/fail verdict
 #   make host-test  only the host unit tests
+#   make gate       CI gate: compare fixed-work counters with bench/baseline.json
+#   make bench      run one benchmark variant (see fw/bench/bench.c)
 #   make stress     hammer the rings with RISC-V code on all harts (fw/probe/ring_stress.c)
 #   make test-drops boot a build that overflows its rings and check the drops are accounted for
 #   make debug      boot QEMU frozen, waiting for GDB on port 1234 (use `make gdb` in a 2nd terminal)
@@ -29,9 +31,15 @@ GDB   ?= $(shell command -v gdb-multiarch >/dev/null 2>&1 && echo gdb-multiarch 
 
 BUILD := build
 HPM_BACKEND ?= qemu
+# Extra -D flags for firmware builds, e.g. FW_DEFS="-DSAMPLE_HZ=100 -DTEST_TICKS=200".
+# Use a separate BUILD= for each, because make does not notice a changed flag.
+FW_DEFS ?=
 SAMPLE_CHECKSUM ?= 1
 TEST_TIMEOUT ?= 120
 STRESS_TIMEOUT ?= 600
+BENCH_TIMEOUT ?= 300
+GATE_THRESHOLD ?= 3
+GATE_DEFS ?=
 HOSTCC ?= cc
 ELF   := $(BUILD)/hartwatch.elf
 
@@ -42,7 +50,7 @@ ARCH   := -march=rv64imac_zicsr_zifencei -mabi=lp64 -mcmodel=medany -mno-relax
 CFLAGS := $(ARCH) -std=gnu11 -O2 -g -Wall -Wextra \
           -ffreestanding -fno-pic -fno-stack-protector -ffunction-sections -fdata-sections \
           -Ifw/src -DSAMPLE_CHECKSUM=$(SAMPLE_CHECKSUM) $(FW_DEFS)
-ASFLAGS := $(ARCH) -g -Ifw
+ASFLAGS := $(ARCH) -g -Ifw $(FW_DEFS)
 LDFLAGS := $(ARCH) -nostdlib -nostartfiles -static -Wl,--gc-sections -Wl,--no-relax -Wl,--no-warn-rwx-segments \
            -Wl,-T,fw/linker.ld -Wl,-Map,$(BUILD)/hartwatch.map
 
@@ -66,7 +74,7 @@ QEMU_COMMON := -machine sifive_u -smp $(SMP) -m 256M -nographic -bios none -no-r
 QEMU_BASE  := $(QEMU_COMMON) $(QEMU_TIMING)
 QEMU_FLAGS := $(QEMU_BASE) -kernel $(ELF)
 
-.PHONY: all run test test-fw test-drops host-test debug gdb dtb disasm size clean probe tickgap stress
+.PHONY: all run test test-fw test-drops host-test debug gdb dtb disasm size clean probe tickgap stress bench bench-elf gate gate-baseline
 all: $(ELF) size
 
 $(ELF): $(OBJS) fw/linker.ld
@@ -119,6 +127,32 @@ stress: $(STRESS_ELF)
 	@EXPECT="STRESS PASSED" TEST_TIMEOUT=$(STRESS_TIMEOUT) scripts/run_test.sh $(STRESS_ELF) \
 	    "$(QEMU) $(QEMU_COMMON) $(STRESS_TIMING) -kernel $(STRESS_ELF)" $(BUILD)
 
+# Benchmark image. BENCH="-D..." selects the variant (see fw/bench/bench.c). It is always rebuilt.
+# BENCH_SAMPLER=0 leaves sampler.c out, so the timer ticks but the ISR takes no sample.
+BENCH ?=
+BENCH_SAMPLER ?= 1
+BENCH_ELF := $(BUILD)/bench.elf
+BENCH_OBJS := $(BUILD)/boot.o $(BUILD)/workloads.o $(BUILD)/hpm_$(HPM_BACKEND).o $(BUILD)/kprintf.o \
+              $(BUILD)/power.o $(BUILD)/uart.o $(BUILD)/timer.o $(BUILD)/trap.o $(BUILD)/sample.o \
+              $(BUILD)/wire.o $(BUILD)/drain.o $(if $(filter 1,$(BENCH_SAMPLER)),$(BUILD)/sampler.o)
+
+bench-elf: $(BENCH_OBJS)
+	@$(CC) $(CFLAGS) -DBENCH_SAMPLE=$(BENCH_SAMPLER) $(BENCH) -c fw/bench/bench.c -o $(BUILD)/bench.o
+	@$(CC) $(LDFLAGS) $(BENCH_OBJS) $(BUILD)/bench.o -lgcc -o $(BENCH_ELF)
+
+bench: bench-elf
+	@EXPECT="BENCH DONE" TEST_TIMEOUT=$(BENCH_TIMEOUT) scripts/run_test.sh $(BENCH_ELF) \
+	    "$(QEMU) $(QEMU_BASE) -kernel $(BENCH_ELF)" $(BUILD)
+
+# The CI gate: fixed work on one U54, other harts asleep, sampling off, under -icount.
+gate:
+	@$(MAKE) --no-print-directory bench BUILD=$(BUILD)/gate BENCH="-DBENCH_MODE=0 $(GATE_DEFS)"
+	@python3 host/gate.py $(BUILD)/gate/last_run.log bench/baseline.json --threshold $(GATE_THRESHOLD)
+
+gate-baseline:
+	@$(MAKE) --no-print-directory bench BUILD=$(BUILD)/gate BENCH="-DBENCH_MODE=0"
+	@python3 host/gate.py $(BUILD)/gate/last_run.log bench/baseline.json --write-baseline
+
 # Tick-gap experiment: GAP="-DGAP_BUSY=0x1e ..." picks the variant (see fw/probe/tickgap.c).
 GAP ?=
 TICKGAP_ELF := $(BUILD)/tickgap.elf
@@ -144,9 +178,6 @@ test-drops:
 	    FW_DEFS="-DRING_SLOTS=32 -DDRAIN_PERIOD_US=100000 -DEXPECT_DROPS=1" \
 	    CHECK_FLAGS="--attempts 2000 --allow-drops"
 
-# Extra -D flags for firmware builds, e.g. FW_DEFS="-DSAMPLE_HZ=100 -DTEST_TICKS=200".
-# Use a separate BUILD= for each, because make does not notice a changed flag.
-FW_DEFS ?=
 CHECK_FLAGS ?= --attempts 2000
 
 # Host tests run under ASan and UBSan, so memory errors fail them too.

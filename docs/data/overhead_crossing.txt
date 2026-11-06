@@ -1,0 +1,8 @@
+period_us=20 BENCH wl=arith minstret=403917839 mcycle=403917839 mtime_us=403918 dtlb_read=169 dtlb_write=443 itlb=0
+period_us=20 TICKS hart=1 ticks=20195 span_us=403880 min_gap=19 max_gap=21 dropped=0
+period_us=19 BENCH wl=arith minstret=404126195 mcycle=404126195 mtime_us=404126 dtlb_read=171 dtlb_write=460 itlb=0
+period_us=19 TICKS hart=1 ticks=21269 span_us=404092 min_gap=18 max_gap=20 dropped=0
+period_us=18 BENCH wl=arith minstret=404358025 mcycle=404358025 mtime_us=404358 dtlb_read=173 dtlb_write=479 itlb=0
+period_us=18 TICKS hart=1 ticks=22464 span_us=404334 min_gap=17 max_gap=19 dropped=0
+period_us=17 BENCH wl=arith minstret=404617403 mcycle=404617403 mtime_us=404618 dtlb_read=176 dtlb_write=499 itlb=0
+period_us=17 TICKS hart=1 ticks=23801 span_us=404600 min_gap=16 max_gap=18 dropped=0

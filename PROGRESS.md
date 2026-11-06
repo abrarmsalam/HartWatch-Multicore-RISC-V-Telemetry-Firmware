@@ -8,12 +8,13 @@ Toolchain: `docker run --rm -v "$PWD":/work hartwatch-dev <cmd>`. Disk must stay
 ## Done
 - Day 3 commits pushed to main (via gh credentials, see D1 in docs/DECISIONS.md).
 - Day 4: symbols, collector, schema, hot functions from a real run. DB tests: 6 passed.
+- Day 6: bench image, gate demo, wall-clock job, sweep. Results in docs/benchmarks.md.
 
 ## In progress
-- Day 6: benchmarks, overhead sweep, CI gate.
+- Day 5 (minimal): FastAPI, pytest, compose, dashboard.
 
 ## Next
-- Day 5 (minimal), Day 7, docs/MORNING_REPORT.md.
+- Day 7, docs/MORNING_REPORT.md. Check the GitHub Actions run: gh run list --branch days-4-7
 
 ## Notes for resuming
 - Push: git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push origin days-4-7

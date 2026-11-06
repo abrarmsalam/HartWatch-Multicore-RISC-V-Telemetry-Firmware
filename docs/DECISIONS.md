@@ -18,3 +18,28 @@ The toolchain itself runs in Docker, so stopping all Docker use would stop every
 database work stops first. Existing `hartwatch-dev` containers, which write very little, continue unless the floor is reached.
 Free space is checked before each Docker step.
 
+## D3: actionlint not used
+
+`actionlint` is not installed, and downloading its binary was blocked by the session's permission rules. That was not worked
+around. The workflow was checked with a plain YAML parser only, which catches syntax errors but not GitHub-specific mistakes.
+
+## D4: The wall-clock job cannot fail CI
+
+GitHub's shared runners are noisy, and this job measures QEMU host runtime, not target performance. It also missed a 12.5%
+instruction increase. It runs with `continue-on-error` and only compares identical code. The `-icount` gate is the one that blocks.
+
+## D5: Rates above 20 kHz added to the sweep
+
+The ISR's overhead was still under 1% at 20 kHz, so 50 kHz and 100 kHz were added, plus 19, 18 and 17 us periods, to find
+where it crosses 1% by measurement and not by extrapolation.
+
+## D6: No telemetry-off row in mode B
+
+A row with no timers on the U54s would still need the E51's tick, which mixes busy harts without timers with a ticking hart. The
+owner ruled that out, so mode A provides the telemetry-off comparison.
+
+## D7: Mann-Whitney written by hand
+
+SciPy would add a large dependency to a disk-limited image, for one small function. It is tested against values worked out from
+the definition, not against SciPy.
+

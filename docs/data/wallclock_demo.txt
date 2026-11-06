@@ -1,0 +1,27 @@
+### Control: identical code on both sides
+QEMU HOST RUNTIME, not target performance. No -icount.
+runs per side 20: baseline median 0.4534 s (min 0.4462, max 0.5103), candidate median 0.4517 s (min 0.4333, max 0.5548)
+median change -0.38%, Mann-Whitney U 239.0, p 0.297677
+WALLCLOCK PASS
+exit code: 0
+
+### Candidate with one extra instruction in the loop (+12.5% instructions)
+QEMU HOST RUNTIME, not target performance. No -icount.
+runs per side 20: baseline median 0.4457 s (min 0.4312, max 0.4866), candidate median 0.4482 s (min 0.4311, max 0.5067)
+median change +0.56%, Mann-Whitney U 171.0, p 0.440750
+WALLCLOCK PASS
+exit code: 0
+
+### Candidate with a real add in the loop instead of a nop (+12.5% instructions)
+QEMU HOST RUNTIME, not target performance. No -icount.
+runs per side 20: baseline median 0.4483 s (min 0.4297, max 0.5160), candidate median 0.4496 s (min 0.4354, max 0.6107)
+median change +0.30%, Mann-Whitney U 195.0, p 0.903116
+WALLCLOCK PASS
+exit code: 0
+
+### Candidate doing 25% more iterations
+QEMU HOST RUNTIME, not target performance. No -icount.
+runs per side 20: baseline median 0.4524 s (min 0.4289, max 0.4999), candidate median 0.5566 s (min 0.5314, max 0.5963)
+median change +23.04%, Mann-Whitney U 0.0, p 0.000000
+WALLCLOCK FAIL
+exit code: 1
