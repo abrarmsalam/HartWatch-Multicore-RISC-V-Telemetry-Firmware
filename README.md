@@ -2,10 +2,6 @@
 Because measuring a CPU shouldn't slow it down. A RISC-V monitor core (E51) does the boring parts so the application cores (U54) can keep working.
 
 
-# HartWatch
-
-**Watching CPUs without slowing them down.** Low-overhead performance telemetry for a multicore RISC-V target, built bare-metal in C and run on QEMU's `sifive_u` machine (1x E51 monitor core + 4x U54 application cores).
-
 ## The problem
 
 RISC-V performance counters (`mcycle`, `minstret`, `mhpmcounter*`) are **hart-local**: a core can only read its own. So every sample is paid for by the core being measured, and measuring it changes what you measure.
