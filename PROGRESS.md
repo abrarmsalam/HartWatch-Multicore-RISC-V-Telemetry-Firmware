@@ -13,10 +13,10 @@ Toolchain: `docker run --rm -v "$PWD":/work hartwatch-dev <cmd>`. Disk must stay
 - Day 6: bench image, gate demo, wall-clock job, sweep. Results in docs/benchmarks.md.
 
 ## In progress
-- docs/MORNING_REPORT.md, then stop.
+- Nothing. Days 4-7 complete, report written. Waiting for owner review.
 
 ## Next
-- Check the last GitHub Actions run before the morning report: gh run list --branch days-4-7
+- Owner reviews docs/MORNING_REPORT.md and decides on merging days-4-7.
 
 ## Notes for resuming
 - Push: git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push origin days-4-7

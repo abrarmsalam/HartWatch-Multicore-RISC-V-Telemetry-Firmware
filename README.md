@@ -97,7 +97,7 @@ All results are from QEMU 8.2.2. None of them describe real hardware. `-icount` 
 - **E51 limit, under `-icount`:** with 4 harts ticking, no drops up to 20 kHz, 16.99-19.20% dropped at 50 kHz, 53.59-58.41% at 100 kHz. Drain costs 861.7-969.1 instructions per sample.
 - **CI gate:** fails on a deliberate slowdown (+12.500% `minstret`) and on a stride change with the same instruction count (+100% DTLB misses), and passes on clean code. See [`docs/benchmarks.md`](docs/benchmarks.md).
 - **Hot functions from a real run:** each hart's workload came first, 99.70-99.95% of samples. These are sampling estimates.
-- **GitHub Actions:** build, tests and gate have passed on GitHub's `ubuntu-24.04` runner, with the same 126,723-byte stream and gate values as the local run.
+- **GitHub Actions:** build, tests and gate have passed on GitHub's `ubuntu-24.04` runner (`x86_64`), with the same 126,723-byte stream size and gate result as the local arm64 run.
 - **With sampling off, DTLB misses separate workloads cleanly:**
 
 | Workload | DTLB read miss | DTLB write miss |

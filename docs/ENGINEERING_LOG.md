@@ -365,8 +365,9 @@ Done before Day 5, as the owner ordered. Full tables are in `docs/benchmarks.md`
   GCC 13.2.0. Extract: `docs/data/github_actions_run.txt`.
 - **Observed.** `make test` produced 504 frames and 126,723 bytes, the same as on the arm64 Mac, and the gate passed against the
   baseline recorded on that Mac. The TSan test's received count differed, which is expected because it depends on thread timing.
-- **Limit.** That run did not log the runner's CPU architecture. `uname -m` is now in the workflow. The wall-clock job there
-  compares identical code and cannot fail the workflow.
+- **Limit.** That run did not log the runner's CPU architecture. `uname -m` was added, and run 42173085324 (`b4b4166`) printed
+  `x86_64`, with the same result. Sizes and gate results match across hosts. Stream contents were not compared byte for byte. The
+  wall-clock job there compares identical code and cannot fail the workflow.
 
 ---
 
