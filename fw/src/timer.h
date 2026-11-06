@@ -11,7 +11,8 @@ void timer_start(unsigned hart, uint64_t period_us, uint64_t limit);
 
 void timer_stop(unsigned hart);
 
-/* Called from trap_handler() when this hart's machine-timer interrupt fires. */
-void timer_irq(unsigned hart);
+/* Called from trap_handler() when this hart's machine-timer interrupt fires.
+ * mepc is the interrupted instruction, which the U54 sample records. */
+void timer_irq(unsigned hart, uint64_t mepc);
 
 #endif

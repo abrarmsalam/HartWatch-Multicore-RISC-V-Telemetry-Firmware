@@ -18,12 +18,18 @@
 /* Memory-mapped I/O base addresses. These come straight from the device tree
  * that QEMU generates (see `make dtb`), so they are facts, not guesses. */
 #define CLINT_BASE       0x02000000   /* core-local interruptor: timer + software IRQ */
-#define L2LIM_BASE       0x08000000   /* 32 MiB of fast on-chip RAM (rings live here on Day 3) */
+#define L2LIM_BASE       0x08000000   /* 32 MiB of fast on-chip RAM (sample storage) */
 #define UART0_BASE       0x10010000   /* console */
 #define UART1_BASE       0x10011000   /* telemetry stream (Day 3) */
 #define GPIO_BASE        0x10060000   /* pin 10 = "reboot"; we abuse it to exit QEMU */
 
 /* DTB says timebase-frequency = 0xf4240 = 1,000,000 Hz: mtime ticks once per microsecond. */
 #define TIMEBASE_HZ      1000000
+
+/* Each sample carries three event counters: DTLB read miss, DTLB write miss, ITLB miss. */
+#define HPM_SLOTS        3
+
+/* Per-U54 sample storage in L2-LIM: 4096 slots x 64 bytes = 256 KiB per hart. */
+#define SAMPLE_SLOTS     4096
 
 #endif

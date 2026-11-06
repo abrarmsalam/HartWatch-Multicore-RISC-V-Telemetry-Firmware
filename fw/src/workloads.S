@@ -1,5 +1,5 @@
 /*
- * workloads.S -- three loops with very different behaviour, for the counter probe.
+ * workloads.S -- loops with very different behaviour, for the probe and the firmware self-test.
  *
  * They are in assembly so the compiler cannot change them and we know EXACTLY how many
  * instructions each executes. That gives a ground truth to check minstret against.
@@ -27,6 +27,8 @@ wl_alu:
     addi    a0, a0, -1
     bnez    a0, 1b
     ret
+    .globl wl_alu_end
+wl_alu_end:
 
 /* One data-dependent branch. Taken and not-taken paths are both 4 instructions. */
 .macro RANDOM_BRANCH mask
@@ -57,6 +59,8 @@ wl_branch:
     addi    a0, a0, -1
     bnez    a0, 1b
     ret
+    .globl wl_branch_end
+wl_branch_end:
 
 /* void wl_stride(uint64_t iters, uintptr_t base, uint64_t stride, uint64_t size_mask) */
     .globl wl_stride
@@ -71,6 +75,8 @@ wl_stride:
     addi    a0, a0, -1
     bnez    a0, 1b
     ret
+    .globl wl_stride_end
+wl_stride_end:
 
 /* void wl_store(uint64_t iters, uintptr_t base, uint64_t stride, uint64_t size_mask) */
     .globl wl_store
@@ -85,3 +91,5 @@ wl_store:
     addi    a0, a0, -1
     bnez    a0, 1b
     ret
+    .globl wl_store_end
+wl_store_end:

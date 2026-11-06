@@ -14,11 +14,7 @@
 #include "kprintf.h"
 #include "platform.h"
 #include "uart.h"
-
-void wl_alu(uint64_t iters);
-void wl_branch(uint64_t iters);
-void wl_stride(uint64_t iters, uintptr_t base, uint64_t stride, uint64_t size_mask);
-void wl_store(uint64_t iters, uintptr_t base, uint64_t stride, uint64_t size_mask);
+#include "workloads.h"
 
 #define ALU_ITERS     5000000UL
 #define BRANCH_ITERS  2000000UL

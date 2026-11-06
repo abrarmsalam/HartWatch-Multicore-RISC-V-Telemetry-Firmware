@@ -2,7 +2,8 @@
 #
 #   make            build build/hartwatch.elf
 #   make run        boot it in QEMU (console on this terminal; exits by itself)
-#   make test       like `run`, but with a timeout and a pass/fail verdict
+#   make test       host unit tests, then `run` with a timeout and a pass/fail verdict
+#   make host-test  only the host unit tests
 #   make debug      boot QEMU frozen, waiting for GDB on port 1234 (use `make gdb` in a 2nd terminal)
 #   make gdb        attach GDB to a running `make debug`
 #   make dtb        dump QEMU's hardware description (device tree) to build/sifive_u.dts
@@ -12,6 +13,9 @@
 #
 # If your cross-compiler has a different prefix (e.g. Homebrew's riscv64-elf-gcc):
 #   make CROSS=riscv64-elf-
+#
+# Counter backend is chosen at build time. Give another backend its own build directory:
+#   make HPM_BACKEND=sifive BUILD=build/sifive
 
 CROSS ?= riscv64-unknown-elf-
 CC    := $(CROSS)gcc
@@ -22,6 +26,8 @@ QEMU  ?= qemu-system-riscv64
 GDB   ?= $(shell command -v gdb-multiarch >/dev/null 2>&1 && echo gdb-multiarch || echo $(CROSS)gdb)
 
 BUILD := build
+HPM_BACKEND ?= qemu
+HOSTCC ?= cc
 ELF   := $(BUILD)/hartwatch.elf
 
 # rv64imac works on BOTH core types: the E51 is rv64imac, the U54s are rv64imafdc.
@@ -36,7 +42,8 @@ LDFLAGS := $(ARCH) -nostdlib -nostartfiles -static -Wl,--gc-sections -Wl,--no-re
            -Wl,-T,fw/linker.ld -Wl,-Map,$(BUILD)/hartwatch.map
 
 C_SRCS := $(wildcard fw/src/*.c)
-OBJS   := $(BUILD)/boot.o $(patsubst fw/src/%.c,$(BUILD)/%.o,$(C_SRCS))
+OBJS   := $(BUILD)/boot.o $(BUILD)/workloads.o $(BUILD)/hpm_$(HPM_BACKEND).o \
+          $(patsubst fw/src/%.c,$(BUILD)/%.o,$(C_SRCS))
 
 # QEMU: 1 E51 + 4 U54 = 5 harts, 256 MiB RAM, no firmware (we ARE the firmware),
 # and treat a reset request as "exit".
@@ -50,7 +57,7 @@ QEMU_BASE  := -machine sifive_u -smp 5 -m 256M -nographic -bios none -no-reboot 
               $(QEMU_TIMING) $(QEMU_EXTRA)
 QEMU_FLAGS := $(QEMU_BASE) -kernel $(ELF)
 
-.PHONY: all run test debug gdb dtb disasm size clean probe
+.PHONY: all run test host-test debug gdb dtb disasm size clean probe
 all: $(ELF) size
 
 $(ELF): $(OBJS) fw/linker.ld
@@ -60,7 +67,15 @@ $(BUILD)/boot.o: fw/boot.S fw/src/config.h
 	@mkdir -p $(BUILD)
 	$(CC) $(ASFLAGS) -c $< -o $@
 
+$(BUILD)/workloads.o: fw/src/workloads.S
+	@mkdir -p $(BUILD)
+	$(CC) $(ASFLAGS) -c $< -o $@
+
 $(BUILD)/%.o: fw/src/%.c
+	@mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
+
+$(BUILD)/hpm_%.o: fw/src/hpm/hpm_%.c
 	@mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
 
@@ -68,7 +83,7 @@ $(BUILD)/%.o: fw/src/%.c
 # but brings its own hart0_main, hart_main and trap_handler.
 PROBE_ELF  := $(BUILD)/probe.elf
 PROBE_OBJS := $(BUILD)/boot.o $(BUILD)/kprintf.o $(BUILD)/power.o $(BUILD)/uart.o \
-              $(BUILD)/probe_main.o $(BUILD)/probe_workloads.o
+              $(BUILD)/probe_main.o $(BUILD)/workloads.o
 
 $(PROBE_ELF): $(PROBE_OBJS) fw/linker.ld
 	$(CC) $(LDFLAGS) $(PROBE_OBJS) -lgcc -o $@
@@ -76,10 +91,6 @@ $(PROBE_ELF): $(PROBE_OBJS) fw/linker.ld
 $(BUILD)/probe_main.o: fw/probe/probe.c
 	@mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
-
-$(BUILD)/probe_workloads.o: fw/probe/workloads.S
-	@mkdir -p $(BUILD)
-	$(CC) $(ASFLAGS) -c $< -o $@
 
 -include $(OBJS:.o=.d) $(BUILD)/probe_main.d
 
@@ -89,7 +100,15 @@ size: $(ELF)
 run: $(ELF)
 	$(QEMU) $(QEMU_FLAGS)
 
-test: $(ELF)
+# Host tests run under ASan and UBSan, so memory errors fail them too.
+host-test:
+	@mkdir -p $(BUILD)
+	@$(HOSTCC) -std=gnu11 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined \
+	    -fno-sanitize-recover=all -Ifw/src fw/tests/test_sample.c fw/tests/hpm_fake.c \
+	    fw/src/sample.c fw/src/sampler.c -o $(BUILD)/test_sample
+	@$(BUILD)/test_sample
+
+test: host-test $(ELF)
 	@scripts/run_test.sh $(ELF) "$(QEMU) $(QEMU_FLAGS)"
 
 probe: $(PROBE_ELF)

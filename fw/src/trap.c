@@ -22,7 +22,7 @@ void trap_handler(uint64_t mcause, uint64_t mepc, uint64_t mtval)
     if (mcause & MCAUSE_INTR) {
         uint64_t code = mcause & ~MCAUSE_INTR;
         if (code == IRQ_MACHINE_TIMER) {
-            timer_irq((unsigned)csr_read(mhartid));
+            timer_irq((unsigned)csr_read(mhartid), mepc);
             return;
         }
         kpanic("unexpected interrupt, code %lu, at pc=0x%lx", code, mepc);

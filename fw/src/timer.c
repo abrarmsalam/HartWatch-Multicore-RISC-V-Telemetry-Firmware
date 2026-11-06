@@ -13,13 +13,14 @@
  * every bit of interrupt latency pile up as drift; this way the long-run rate is
  * exact and a late tick just shows up as one short gap afterwards.
  *
- * This is the exact mechanism the Day-2 sampling ISR will use: the timer interrupt
- * IS the sampling clock.
+ * The timer interrupt IS the sampling clock: each U54 takes a sample on every tick.
+ * The E51 also has a tick, used only to wake from wfi, and it does not sample.
  */
 #include "timer.h"
 #include "csr.h"
 #include "hart.h"
 #include "platform.h"
+#include "sampler.h"
 
 void timer_start(unsigned hart, uint64_t period_us, uint64_t limit)
 {
@@ -42,10 +43,13 @@ void timer_stop(unsigned hart)
     CLINT_MTIMECMP(hart) = ~0UL;     /* "never": also drops the pending bit */
 }
 
-void timer_irq(unsigned hart)
+void timer_irq(unsigned hart, uint64_t mepc)
 {
     hart_state_t *s = &g_hart[hart];
     uint64_t now = CLINT_MTIME;
+
+    if (hart != MONITOR_HART)
+        sampler_tick(hart, now, mepc);      /* first, so the snapshot is close to the tick */
 
     if (s->ticks == 0) {
         s->first_tick_time = now;
