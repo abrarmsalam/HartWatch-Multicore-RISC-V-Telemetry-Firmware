@@ -1,0 +1,47 @@
+GitHub Actions run 42172406712, commit 4a367c9, ubuntu-24.04 runner. Conclusion: success, both jobs.
+
+[Compare two builds of the same code] QEMU HOST RUNTIME, not target performance. No -icount.
+[Compare two builds of the same code] runs per side 20: baseline median 0.5156 s (min 0.5153, max 0.5173), candidate median 0.5156 s (min 0.5154, max 0.5171)
+[Compare two builds of the same code] median change +0.00%, Mann-Whitney U 211.0, p 0.776391
+[Compare two builds of the same code] WALLCLOCK PASS
+[Show tool versions] QEMU emulator version 8.2.2 (Debian 1:8.2.2+ds-0ubuntu1.18)
+[Show tool versions] riscv64-unknown-elf-gcc (13.2.0-11ubuntu1+12) 13.2.0
+[Build and test] 557 checks, 0 failed
+[Build and test] 44 checks, 0 failed
+[Build and test] 60 checks, 0 failed
+[Build and test] 588 checks, 0 failed
+[Build and test] 71 passed in 3.02s
+[Build and test] attempts 2000000 received 1023667 dropped 976333 seq_gaps 976333 bad 0
+[Build and test]  wire: 504 frames, 126723 bytes on UART1
+[Build and test] ALL TESTS PASSED
+[Build and test]  all      8000  bytes 126723  bytes/sample 15.84  span_us 1999288  bytes/s 63384
+[Build and test] DECODER PASS
+[Boot a build that drops samples] 557 checks, 0 failed
+[Boot a build that drops samples] 44 checks, 0 failed
+[Boot a build that drops samples] 60 checks, 0 failed
+[Boot a build that drops samples] 588 checks, 0 failed
+[Boot a build that drops samples] 71 passed in 2.96s
+[Boot a build that drops samples] attempts 2000000 received 1039323 dropped 960677 seq_gaps 960677 bad 0
+[Boot a build that drops samples]  wire: 165 frames, 40689 bytes on UART1
+[Boot a build that drops samples] ALL TESTS PASSED
+[Boot a build that drops samples]  all      2561  bytes 40689  bytes/sample 15.89  span_us 1999031  bytes/s 20354
+[Boot a build that drops samples] DECODER PASS
+[Gate on fixed-work counters] arith     minstret          40000015.0000    40000015.0000    +0.000%  ok
+[Gate on fixed-work counters] arith     dtlb_read_pki            0.0000           0.0000        n/a  ok
+[Gate on fixed-work counters] arith     dtlb_write_pki           0.0000           0.0000        n/a  ok
+[Gate on fixed-work counters] branch    minstret          48000016.0000    48000016.0000    +0.000%  ok
+[Gate on fixed-work counters] branch    dtlb_read_pki            0.0000           0.0000        n/a  ok
+[Gate on fixed-work counters] branch    dtlb_write_pki           0.0000           0.0000        n/a  ok
+[Gate on fixed-work counters] load4k    minstret          35000021.0000    35000021.0000    +0.000%  ok
+[Gate on fixed-work counters] load4k    dtlb_read_pki          142.8571         142.8571    +0.000%  ok
+[Gate on fixed-work counters] load4k    dtlb_write_pki           0.0000           0.0000        n/a  ok
+[Gate on fixed-work counters] load64    minstret          35000020.0000    35000020.0000    +0.000%  ok
+[Gate on fixed-work counters] load64    dtlb_read_pki            2.2322           2.2322    +0.000%  ok
+[Gate on fixed-work counters] load64    dtlb_write_pki           0.0000           0.0000        n/a  ok
+[Gate on fixed-work counters] store4k   minstret          35000021.0000    35000021.0000    +0.000%  ok
+[Gate on fixed-work counters] store4k   dtlb_read_pki            0.0000           0.0000    +0.000%  ok
+[Gate on fixed-work counters] store4k   dtlb_write_pki         142.8571         142.8571    +0.000%  ok
+[Gate on fixed-work counters] store64   minstret          35000020.0000    35000020.0000    +0.000%  ok
+[Gate on fixed-work counters] store64   dtlb_read_pki            0.0000           0.0000    +0.000%  ok
+[Gate on fixed-work counters] store64   dtlb_write_pki           2.2321           2.2321    +0.000%  ok
+[Gate on fixed-work counters] GATE PASS: 18 metrics within +3.0%

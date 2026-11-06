@@ -21,7 +21,7 @@ Free space is checked before each Docker step.
 ## D3: actionlint not used
 
 `actionlint` is not installed, and downloading its binary was blocked by the session's permission rules. That was not worked
-around. The workflow was checked with a plain YAML parser only, which catches syntax errors but not GitHub-specific mistakes.
+around. No YAML parser was available either. The workflow's only validation is that GitHub accepted and ran it.
 
 ## D4: The wall-clock job cannot fail CI
 
@@ -42,4 +42,9 @@ owner ruled that out, so mode A provides the telemetry-off comparison.
 
 SciPy would add a large dependency to a disk-limited image, for one small function. It is tested against values worked out from
 the definition, not against SciPy.
+
+## D8: No WebSocket
+
+The owner asked for one only if cheap. The collector reads finished captures, so a WebSocket would replay stored rows while
+appearing live. That would mislead, so it was left out.
 

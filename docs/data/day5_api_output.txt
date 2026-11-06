@@ -1,0 +1,34 @@
+$ docker compose ps
+api running 127.0.0.1:8000->8000/tcp
+db running 127.0.0.1:5432->5432/tcp
+
+$ curl /runs
+[{"run_id":4,"name":"day5-drops","git_commit":"4a367c9","timing_mode":"icount","sample_hz":1000,"wire_bytes":40689,"bad_frames":0,"samples":2561,"dropped":5439},{"run_id":2,"name":"day4-1khz","git_commit":"69f22ba","timing_mode":"icount","sample_hz":1000,"wire_bytes":126723,"bad_frames":0,"samples":8000,"dropped":0}]
+
+$ curl /runs/4
+{'run_id': 4, 'name': 'day5-drops', 'samples': 2561, 'dropped': 5439}
+{'hart': 1, 'samples': 641, 'attempts': 2000, 'dropped': 1359, 'frames': 42, 'wire_bytes': 9338, 'digest_ok': True}
+{'hart': 2, 'samples': 640, 'attempts': 2000, 'dropped': 1360, 'frames': 41, 'wire_bytes': 9456, 'digest_ok': True}
+{'hart': 3, 'samples': 640, 'attempts': 2000, 'dropped': 1360, 'frames': 41, 'wire_bytes': 10629, 'digest_ok': True}
+{'hart': 4, 'samples': 640, 'attempts': 2000, 'dropped': 1360, 'frames': 41, 'wire_bytes': 11266, 'digest_ok': True}
+
+$ curl /runs/2/hot-functions
+{'hart': 1, 'symbol': 'wl_alu', 'samples': 1999, 'percent': 99.95}
+{'hart': 1, 'symbol': 'hart_main', 'samples': 1, 'percent': 0.05}
+{'hart': 2, 'symbol': 'wl_branch', 'samples': 1998, 'percent': 99.9}
+{'hart': 2, 'symbol': 'hart_main', 'samples': 1, 'percent': 0.05}
+
+$ curl "/runs/2/harts/3/series?metric=dtlb_read&limit=3"
+[{"mtime_us":2204,"delta":51387},{"mtime_us":3204,"delta":51386},{"mtime_us":4204,"delta":51333}]
+
+$ curl /runs/4/diff/2 (first 4 rows)
+{'hart': 1, 'symbol': 'wl_alu', 'baseline_percent': 99.95, 'run_percent': 99.69, 'change_points': -0.26}
+{'hart': 1, 'symbol': 'run_alu', 'baseline_percent': 0.0, 'run_percent': 0.16, 'change_points': 0.16}
+{'hart': 1, 'symbol': 'hart_main', 'baseline_percent': 0.05, 'run_percent': 0.16, 'change_points': 0.11}
+{'hart': 2, 'symbol': 'wl_branch', 'baseline_percent': 99.9, 'run_percent': 100.0, 'change_points': 0.1}
+
+$ status codes: / /docs /openapi.json /runs/99
+/ 200
+/docs 200
+/openapi.json 200
+/runs/99 404

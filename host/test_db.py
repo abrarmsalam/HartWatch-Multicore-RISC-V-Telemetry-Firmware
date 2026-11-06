@@ -79,3 +79,22 @@ def test_hot_functions_put_each_workload_first(run) -> None:
         top.setdefault(hart, (symbol, percent))
     assert {h: s for h, (s, _) in top.items()} == {1: "wl_alu", 2: "wl_branch", 3: "wl_stride", 4: "wl_store"}
     assert all(p > 90 for _, p in top.values())
+
+
+def test_api_store_reads_the_same_data(run) -> None:
+    """The SQL in api.py, against the real database."""
+    import api
+
+    _, run_id, stream = run
+    store = api.PostgresStore(URL)
+    detail = store.run(run_id)
+    assert detail.samples == sum(len(h.samples) for h in stream.harts.values())
+    assert [h.hart for h in detail.harts] == sorted(stream.harts)
+    assert run_id in [r.run_id for r in store.runs()]
+    assert store.hot_functions(run_id)[0].symbol == "wl_alu"
+
+    samples = stream.harts[3].samples
+    series = store.series(run_id, 3, "hpm0", 5)
+    assert series[0].delta == samples[1].hpm0 - samples[0].hpm0
+    assert series[0].mtime_us == samples[1].mtime
+

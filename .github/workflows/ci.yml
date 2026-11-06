@@ -22,6 +22,7 @@ jobs:
             python3-pytest python3-pyelftools python3-fastapi python3-httpx
       - name: Show tool versions
         run: |
+          uname -m
           qemu-system-riscv64 --version | head -1
           riscv64-unknown-elf-gcc --version | head -1
       - name: Build and test

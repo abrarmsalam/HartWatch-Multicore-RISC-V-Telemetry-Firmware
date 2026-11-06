@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HartWatch</title>
+<style>
+  :root { color-scheme: light dark; --line: #8884; --bar: #3b7dd8; }
+  body { font: 15px/1.5 system-ui, sans-serif; max-width: 900px; margin: 0 auto; padding: 1rem; }
+  table { border-collapse: collapse; width: 100%; margin: .5rem 0 1.5rem; }
+  th, td { border-bottom: 1px solid var(--line); padding: .3rem .5rem; text-align: left; }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  .bar { background: var(--bar); height: .7rem; }
+  .note { opacity: .75; font-size: .9em; }
+  svg { width: 100%; height: 140px; border: 1px solid var(--line); }
+  polyline { fill: none; stroke: var(--bar); stroke-width: 1; vector-effect: non-scaling-stroke; }
+  select { font: inherit; padding: .2rem; margin-right: .5rem; }
+</style>
+</head>
+<body>
+<h1>HartWatch</h1>
+<p class="note">Telemetry from QEMU runs. These numbers describe QEMU, not hardware. Function shares are estimates from sampling.</p>
+<label>Run <select id="run"></select></label>
+<div id="summary"></div>
+<h2>Hot functions</h2>
+<table id="hot"></table>
+<h2>Counter change per sample</h2>
+<label>Hart <select id="hart"></select></label>
+<label>Metric <select id="metric">
+  <option value="dtlb_read">DTLB read miss</option><option value="dtlb_write">DTLB write miss</option>
+  <option value="itlb">ITLB miss</option><option value="minstret">minstret</option>
+</select></label>
+<p id="range" class="note"></p>
+<svg id="chart" viewBox="0 0 1000 100" preserveAspectRatio="none"><polyline id="line"/></svg>
+<script>
+const $ = id => document.getElementById(id);
+const get = url => fetch(url).then(r => { if (!r.ok) throw new Error(url + ': ' + r.status); return r.json(); });
+const cell = (text, cls) => { const td = document.createElement('td'); td.textContent = text; if (cls) td.className = cls; return td; };
+
+async function loadRuns() {
+  const runs = await get('/runs');
+  $('run').replaceChildren(...runs.map(r => new Option(`${r.run_id}: ${r.name} (${r.timing_mode}, ${r.sample_hz} Hz)`, r.run_id)));
+  if (runs.length) await loadRun();
+  else $('summary').textContent = 'No runs yet.';
+}
+
+async function loadRun() {
+  const id = $('run').value;
+  const run = await get(`/runs/${id}`);
+  $('summary').textContent = `${run.samples} samples, ${run.dropped} dropped, ${run.wire_bytes} wire bytes, ${run.bad_frames} damaged frames`;
+  $('hart').replaceChildren(...run.harts.map(h => new Option(h.hart, h.hart)));
+
+  const rows = await get(`/runs/${id}/hot-functions`);
+  const table = $('hot');
+  table.replaceChildren();
+  const head = table.insertRow();
+  for (const [t, c] of [['Hart'], ['Function'], ['Samples', 'n'], ['Share', 'n'], ['']]) {
+    const th = document.createElement('th'); th.textContent = t; if (c) th.className = c; head.append(th);
+  }
+  for (const f of rows) {
+    const tr = table.insertRow();
+    tr.append(cell(f.hart), cell(f.symbol), cell(f.samples, 'n'), cell(f.percent + '%', 'n'));
+    const bar = document.createElement('div'); bar.className = 'bar'; bar.style.width = f.percent + '%';
+    const td = document.createElement('td'); td.style.width = '30%'; td.append(bar); tr.append(td);
+  }
+  await loadSeries();
+}
+
+async function loadSeries() {
+  const pts = await get(`/runs/${$('run').value}/harts/${$('hart').value}/series?metric=${$('metric').value}`);
+  const max = Math.max(1, ...pts.map(p => p.delta));
+  const n = Math.max(1, pts.length - 1);
+  $('line').setAttribute('points', pts.map((p, i) => `${(i / n * 1000).toFixed(1)},${(100 - p.delta / max * 98).toFixed(1)}`).join(' '));
+  $('range').textContent = `${pts.length} points, maximum change per sample ${max}`;
+}
+
+$('run').onchange = loadRun;
+$('hart').onchange = loadSeries;
+$('metric').onchange = loadSeries;
+loadRuns().catch(e => { $('summary').textContent = e.message; });
+</script>
+</body>
+</html>

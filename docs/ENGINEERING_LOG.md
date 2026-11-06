@@ -359,3 +359,22 @@ Done before Day 5, as the owner ordered. Full tables are in `docs/benchmarks.md`
   case was significant. The code was right.
 - `actionlint` was unavailable. See D3.
 
+### GitHub Actions
+
+- **Result.** The push of `4a367c9` triggered run 42172406712. Conclusion: success, both jobs, on `ubuntu-24.04` with QEMU 8.2.2 and
+  GCC 13.2.0. Extract: `docs/data/github_actions_run.txt`.
+- **Observed.** `make test` produced 504 frames and 126,723 bytes, the same as on the arm64 Mac, and the gate passed against the
+  baseline recorded on that Mac. The TSan test's received count differed, which is expected because it depends on thread timing.
+- **Limit.** That run did not log the runner's CPU architecture. `uname -m` is now in the workflow. The wall-clock job there
+  compares identical code and cannot fail the workflow.
+
+---
+
+## Day 5 (minimal)
+
+**Observed.** `docker compose up` started the database and API. Real HTTP responses are in `docs/data/day5_api_output.txt`, covering
+runs, per-hart totals, hot functions, a series, and a diff between run 2 and the drop-test run 4. API tests: 17 with a fake store,
+plus a real-database test.
+
+**Not done.** No WebSocket (D8). The dashboard was served, and its API calls work, but it was not viewed in a browser.
+

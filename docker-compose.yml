@@ -17,6 +17,23 @@ services:
       timeout: 3s
       retries: 30
 
+  api:
+    image: hartwatch-dev
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    working_dir: /work
+    command: python3 -m uvicorn --app-dir host api:app --host 0.0.0.0 --port 8000
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - .:/work
+    environment:
+      HW_DB_URL: postgresql://hartwatch:hartwatch@db:5432/hartwatch
+    depends_on:
+      db:
+        condition: service_healthy
+
   # One-off commands that need the toolchain and the database:
   #   docker compose run --rm tools python3 host/collector.py ...
   tools:
