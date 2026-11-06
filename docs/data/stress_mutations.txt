@@ -1,0 +1,24 @@
+control (no mutation)              full       rc=0  records verified: 5000271, problems: 0
+      bad=0 backwards=0
+control (no mutation)              near-empty rc=0  records verified: 2000022, problems: 0
+      bad=0 backwards=0
+commit before fill (logic bug)     full       rc=2  records verified: 5000259, problems: 5
+      bad=1 backwards=2
+commit before fill (logic bug)     near-empty rc=2  records verified: 2000023, problems: 824
+      bad=253 backwards=567
+ring_commit: release -> relaxed    full       rc=0  records verified: 5000270, problems: 0
+      bad=0 backwards=0
+ring_commit: release -> relaxed    near-empty rc=0  records verified: 2000026, problems: 0
+      bad=0 backwards=0
+ring_peek: acquire -> relaxed      full       rc=0  records verified: 5000269, problems: 0
+      bad=0 backwards=0
+ring_peek: acquire -> relaxed      near-empty rc=0  records verified: 2000020, problems: 0
+      bad=0 backwards=0
+ring_consume: release -> relaxed   full       rc=0  records verified: 5000259, problems: 0
+      bad=0 backwards=0
+ring_consume: release -> relaxed   near-empty rc=0  records verified: 2000023, problems: 0
+      bad=0 backwards=0
+ring_reserve: acquire -> relaxed   full       rc=0  records verified: 5000287, problems: 0
+      bad=0 backwards=0
+ring_reserve: acquire -> relaxed   near-empty rc=0  records verified: 2000021, problems: 0
+      bad=0 backwards=0

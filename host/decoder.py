@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Iterator
 
 MASK64 = (1 << 64) - 1
+SEQ_MASK = (1 << 32) - 1
 TYPE_SAMPLES = 1
 TYPE_END = 2
 FIELDS = ("seq", "mtime", "mcycle", "minstret", "hpm0", "hpm1", "hpm2", "mepc")
@@ -150,6 +151,15 @@ def split_frames(stream: bytes) -> Iterator[bytes]:
         if end > start:
             yield stream[start:end]
         start = end + 1
+
+
+def seq_gap(prev: int, cur: int) -> int | None:
+    """Samples skipped between two seq values, or None if cur is not newer. seq is 32 bits and
+    wraps, so the difference is taken modulo 2^32."""
+    step = (cur - prev) & SEQ_MASK
+    if step == 0 or step >= 1 << 31:
+        return None
+    return step - 1
 
 
 def _rotl7(value: int) -> int:

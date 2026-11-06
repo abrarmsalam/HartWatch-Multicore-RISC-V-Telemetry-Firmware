@@ -4,6 +4,7 @@
 #   make run        boot it in QEMU (console on this terminal; exits by itself)
 #   make test       host unit tests, then `run` with a timeout and a pass/fail verdict
 #   make host-test  only the host unit tests
+#   make stress     hammer the rings with RISC-V code on all harts (fw/probe/ring_stress.c)
 #   make test-drops boot a build that overflows its rings and check the drops are accounted for
 #   make debug      boot QEMU frozen, waiting for GDB on port 1234 (use `make gdb` in a 2nd terminal)
 #   make gdb        attach GDB to a running `make debug`
@@ -30,6 +31,7 @@ BUILD := build
 HPM_BACKEND ?= qemu
 SAMPLE_CHECKSUM ?= 1
 TEST_TIMEOUT ?= 120
+STRESS_TIMEOUT ?= 600
 HOSTCC ?= cc
 ELF   := $(BUILD)/hartwatch.elf
 
@@ -59,11 +61,12 @@ QEMU_EXTRA  ?=
 SMP ?= 5
 # Serial port 0 (UART0) is the console; serial port 1 (UART1) is the telemetry stream.
 TELEMETRY  := $(BUILD)/telemetry.bin
-QEMU_BASE  := -machine sifive_u -smp $(SMP) -m 256M -nographic -bios none -no-reboot \
-              -serial mon:stdio -serial file:$(TELEMETRY) $(QEMU_TIMING) $(QEMU_EXTRA)
+QEMU_COMMON := -machine sifive_u -smp $(SMP) -m 256M -nographic -bios none -no-reboot \
+               -serial mon:stdio -serial file:$(TELEMETRY) $(QEMU_EXTRA)
+QEMU_BASE  := $(QEMU_COMMON) $(QEMU_TIMING)
 QEMU_FLAGS := $(QEMU_BASE) -kernel $(ELF)
 
-.PHONY: all run test test-drops host-test debug gdb dtb disasm size clean probe tickgap
+.PHONY: all run test test-drops host-test debug gdb dtb disasm size clean probe tickgap stress
 all: $(ELF) size
 
 $(ELF): $(OBJS) fw/linker.ld
@@ -97,6 +100,24 @@ $(PROBE_ELF): $(PROBE_OBJS) fw/linker.ld
 $(BUILD)/probe_main.o: fw/probe/probe.c
 	@mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
+
+# Ring stress test. Runs WITHOUT -icount by default: that is the mode where harts really run
+# in parallel. STRESS_TIMING="-icount shift=0,sleep=off" runs it in turn-taking mode instead.
+STRESS_ELF := $(BUILD)/stress.elf
+STRESS_TIMING ?=
+STRESS_OBJS := $(BUILD)/boot.o $(BUILD)/kprintf.o $(BUILD)/power.o $(BUILD)/uart.o \
+               $(BUILD)/sample.o $(BUILD)/stress_main.o
+
+$(BUILD)/stress_main.o: fw/probe/ring_stress.c fw/src/ring.h
+	@mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(STRESS_ELF): $(STRESS_OBJS) fw/linker.ld
+	$(CC) $(LDFLAGS) $(STRESS_OBJS) -lgcc -o $@
+
+stress: $(STRESS_ELF)
+	@EXPECT="STRESS PASSED" TEST_TIMEOUT=$(STRESS_TIMEOUT) scripts/run_test.sh $(STRESS_ELF) \
+	    "$(QEMU) $(QEMU_COMMON) $(STRESS_TIMING) -kernel $(STRESS_ELF)" $(BUILD)
 
 # Tick-gap experiment: GAP="-DGAP_BUSY=0x1e ..." picks the variant (see fw/probe/tickgap.c).
 GAP ?=

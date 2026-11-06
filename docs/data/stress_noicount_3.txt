@@ -1,0 +1,9 @@
+
+=== HartWatch ring stress: target 20000000 verified records, 64 slots ===
+ hart  pacing   attempts   received    dropped   seq_gaps   bad  backwards  max_occ       laps
+    1       0  866218814    4999186  861219628  861219628     0          0       64      78112
+    2       0 5320587323    4998174 5315589149 5315589149     0          0       64      78096
+    3     100  772123405    5000609  767122796  767122796     0          0       64      78134
+    4     400  234812833    5002312  229810521  229810521     0          0       64      78161
+records verified: 20000281, problems: 0
+STRESS PASSED

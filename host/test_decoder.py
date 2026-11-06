@@ -145,6 +145,12 @@ def test_unfinished_last_frame_is_ignored() -> None:
     assert d.decode_stream(a + a[:-3]).bad_frames == 0
 
 
+@pytest.mark.parametrize("prev,cur,gap", [(5, 6, 0), (5, 9, 3), (0xFFFFFFFF, 0, 0), (0xFFFFFFFE, 1, 2),
+                                          (5, 5, None), (6, 5, None), (0, 0xFFFFFFFF, None)])
+def test_seq_gap_handles_wrap(prev: int, cur: int, gap: int | None) -> None:
+    assert d.seq_gap(prev, cur) == gap
+
+
 def test_digest_matches_c_golden_value() -> None:
     """0x223c is the checksum test_sample.c checks, for this record with flags 0x5A."""
     sample = d.Sample(2, 0x01020304 | (0x5A << 40), 0x1111111111111111, 0x2222222222222222,

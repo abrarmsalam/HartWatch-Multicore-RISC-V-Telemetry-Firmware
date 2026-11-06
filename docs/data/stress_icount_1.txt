@@ -1,0 +1,2 @@
+
+=== HartWatch ring stress: target 2000000 verified records, 64 slots ===

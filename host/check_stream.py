@@ -32,13 +32,15 @@ def check_hart(hart: int, s: d.HartStream, expect_attempts: int | None, allow_dr
 
     gaps = 0
     for prev, cur in zip(s.samples, s.samples[1:]):
-        if cur.seq <= prev.seq:
+        skipped = d.seq_gap(prev.seq, cur.seq)
+        if skipped is None:
             problems.append(f"hart {hart}: seq went backwards at {cur.seq}")
+        else:
+            gaps += skipped
         if cur.mtime < prev.mtime or cur.mcycle < prev.mcycle or cur.minstret < prev.minstret:
             problems.append(f"hart {hart}: a counter went backwards at seq {cur.seq}")
-        gaps += cur.seq - prev.seq - 1
     if s.samples:
-        gaps += s.samples[0].seq + (end.attempts - 1 - s.samples[-1].seq)
+        gaps += s.samples[0].seq + ((end.attempts - 1 - s.samples[-1].seq) & d.SEQ_MASK)
     if gaps != end.dropped:
         problems.append(f"hart {hart}: seq gaps total {gaps}, drop counter says {end.dropped}")
 
