@@ -30,7 +30,7 @@ Known limits found on Day 1:
 - `minstret` under `-icount` is within 16 instructions of the true count on 35-48 million instructions.
 - With sampling OFF, DTLB read and write miss counts separate loads from stores with no crossover, and are identical with and without `-icount`.
   Stride 64 B: 78,125 misses; stride 4 KiB+64 B: 5,000,000 misses; arithmetic and branch-heavy: 0.
-- With sampling ON, the crossover is no longer zero: the ISR's own accesses add DTLB misses (e.g. 94,536 read misses on the store hart, about 0.1% of its write misses, under `-icount`). This extra is an overhead signal for the Day 6 sweep, not a workload metric.
+- With sampling ON, the crossover is no longer zero: the ISR's own accesses add DTLB misses (inferred, not isolated; e.g. 94,536 read misses on the store hart, about 0.1% of its write misses, under `-icount`). This extra is an overhead signal for the Day 6 sweep, not a workload metric.
 - ITLB miss is unproven. It reached about 26,000 on the load and store harts with sampling on, but that is not evidence of code footprint: none of these workloads has a large code footprint.
 - Tick lateness under `-icount` comes from QEMU's round-robin scheduling, not from the host, the workload or the ISR. See the Day 2 log.
 

@@ -37,7 +37,8 @@ IPC is flat on QEMU, so there is no IPC gate (`docs/ENGINEERING_LOG.md`, Day 2).
 - **Gate, under `-icount`:** `minstret` for a fixed amount of work on one U54 with the E51 asleep and **sampling
   disabled**, plus DTLB read and write misses per thousand instructions. Plain threshold against a stored baseline,
   default 3%.
-- **Why sampling is off:** with it on, the ISR's own accesses add DTLB misses (94,536 read misses on the store hart).
+- **Why sampling is off:** with it on, the ISR's own accesses add DTLB misses (inferred, not isolated; 94,536 read
+  misses on the store hart).
   That extra is overhead, reported in the Day 6 sweep. It must not be mixed into a workload metric.
 - **Why no statistical test there:** repeat `-icount` runs were identical, so variance is zero and a rank test has
   nothing to work with.
