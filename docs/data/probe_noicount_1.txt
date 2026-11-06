@@ -1,0 +1,84 @@
+
+=== HartWatch counter probe ===
+[A] hart 0:         mcycle = 457950281708 (0x6a9ff6bfec)
+[A] hart 0:       minstret = 457953333958 (0x6aa02552c6)
+[A] hart 0:  mcountinhibit TRAPS (illegal instruction)
+[A] hart 0:     mcounteren = 0 (0x0)
+[A] hart 0: mhpmcounter readable: 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18
+[A] hart 0: mhpmevent readable:   3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+[A] hart 1:         mcycle = 457971172500 (0x6aa1358494)
+[A] hart 1:       minstret = 457974774417 (0x6aa16c7a91)
+[A] hart 1:  mcountinhibit TRAPS (illegal instruction)
+[A] hart 1:     mcounteren = 0 (0x0)
+[A] hart 1: mhpmcounter readable: 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18
+[A] hart 1: mhpmevent readable:   3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+[F] programmed 11 selectors, 0 trap(s)
+[B] back-to-back reads (delta between two consecutive csrr):
+[B]   mcycle +2458   minstret +2459
+[B]   mcycle +208   minstret +208
+[B]   mcycle +167   minstret +167
+[B]   mcycle +125   minstret +167
+[B]   mcycle +209   minstret +208
+[C]  workload rep   d_mcycle   d_minstret   d_mtime ipc_x1000 instret_err d_hpm5
+      alu 0      9985166      9963583     10013       997   -30036417          0
+      alu 1      9666333      9665625      9668       999   -30334375          0
+      alu 2      9666250      9665750      9668       999   -30334250          0
+      alu 3      9652917      9652458      9655       999   -30347542          0
+      alu 4      9659000      9658500      9660       999   -30341500          0
+   branch 0     34056166     34055708     34058       999   -13944292          0
+   branch 1     34007792     34007083     34011       999   -13992917          0
+   branch 2     34187000     34184625     34195       999   -13815375          0
+   branch 3     33988708     33987959     33991       999   -14012041          0
+   branch 4     33958375     33957958     33960       999   -14042042          0
+ stride64 0     15979750     15979417     15982       999   -19020583      78125
+ stride64 1     15747125     15746666     15749       999   -19253334      78125
+ stride64 2     15826291     15825708     15829       999   -19174292      78125
+ stride64 3     15791125     15790708     15793       999   -19209292      78125
+ stride64 4     15802584     15802125     15804       999   -19197875      78125
+ stride4k 0    427763625    427756875    427779       999   392756875    5000000
+ stride4k 1    431222750    431219375    431233       999   396219375    5000000
+ stride4k 2    427189209    427173334    427206       999   392173334    5000000
+ stride4k 3    430180542    430177001    430194       999   395177001    5000000
+ stride4k 4    427702834    427696875    427718       999   392696875    5000000
+[D] counters across a 10000 us wfi sleep:
+[D]   d_mtime=12660 d_mcycle=12612875 d_minstret=12591167
+[D]   d_mtime=12246 d_mcycle=12238083 d_minstret=12237541
+[D]   d_mtime=12588 d_mcycle=12581250 d_minstret=12580750
+[E] wrote 1000: mcycle reads 16583, minstret reads 4291
+[E] write mcountinhibit=0x5: 1 trap(s); one alu run after it:
+[E]   d_mcycle=11338416 d_minstret=11324208
+[F] ctr             selector  readback          alu       branch     stride64     stride4k
+[F]   3       control:event0         0            0            0            0            0
+[F]   4          qemu:cycles         1     10238625     34131667     15728042    428626042
+[F]   5    qemu:dtlb_rd_miss     10019            0            0        78127      5000002
+[F]   6    qemu:instructions         2     10237750     34131625     15728167    428626250
+[F]   7    qemu:dtlb_wr_miss     1001b            0            0            0            0
+[F]   8       qemu:itlb_miss     10021            0            0            0            0
+[F]   9      sifive:int_load       200            0            0            0            0
+[F]  10   sifive:cond_branch      4000            0            0            0            0
+[F]  11    sifive:br_mispred      2001            0            0            0            0
+[F]  12   sifive:icache_miss       102            0            0            0            0
+[F]  13   sifive:dcache_miss       202            0            0            0            0
+[G] harts 2-4 now running the alu loop; hart 1 repeats phase C:
+[G]  workload rep   d_mcycle   d_minstret   d_mtime ipc_x1000 instret_err d_hpm5
+      alu 0     10281083     10280375     10285       999   -29719625          0
+      alu 1     10272125     10271375     10276       999   -29728625          0
+      alu 2     10320334     10319542     10324       999   -29680458          0
+      alu 3     10173542     10173084     10175       999   -29826916          0
+      alu 4     10171458     10171083     10172       999   -29828917          0
+   branch 0     35862208     35861917     35865       999   -12138083          0
+   branch 1     35656125     35655875     35658       999   -12344125          0
+   branch 2     35625959     35625709     35628       999   -12374291          0
+   branch 3     35783709     35783459     35786       999   -12216541          0
+   branch 4     35777166     35776958     35779       999   -12223042          0
+ stride64 0     16622000     16621750     16625       999   -18378250      78125
+ stride64 1     16553084     16552833     16556       999   -18447167      78125
+ stride64 2     16587167     16586917     16589       999   -18413083      78125
+ stride64 3     16522500     16522250     16524       999   -18477750      78125
+ stride64 4     16520459     16520167     16522       999   -18479833      78125
+ stride4k 0    450008083    450006208    450026       999   415006208    5000000
+ stride4k 1    449971792    449969375    449990       999   414969375    5000000
+ stride4k 2    450132209    450130459    450156       999   415130459    5000000
+ stride4k 3    498422542    498421125    498442       999   463421125    5000000
+ stride4k 4    448201167    448200500    448211       999   413200500    5000000
+PROBE DONE

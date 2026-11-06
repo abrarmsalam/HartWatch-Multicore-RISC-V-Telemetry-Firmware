@@ -7,6 +7,7 @@
 #   make gdb        attach GDB to a running `make debug`
 #   make dtb        dump QEMU's hardware description (device tree) to build/sifive_u.dts
 #   make disasm     disassemble the firmware to build/hartwatch.lst
+#   make probe      run the counter probe (fw/probe); add QEMU_TIMING= to run without -icount
 #   make clean
 #
 # If your cross-compiler has a different prefix (e.g. Homebrew's riscv64-elf-gcc):
@@ -45,10 +46,11 @@ OBJS   := $(BUILD)/boot.o $(patsubst fw/src/%.c,$(BUILD)/%.o,$(C_SRCS))
 # depending on how busy your computer is. Use `make run QEMU_TIMING=` to turn it off.
 QEMU_TIMING ?= -icount shift=0,sleep=off
 QEMU_EXTRA  ?=
-QEMU_FLAGS := -machine sifive_u -smp 5 -m 256M -nographic -bios none -no-reboot \
-              $(QEMU_TIMING) $(QEMU_EXTRA) -kernel $(ELF)
+QEMU_BASE  := -machine sifive_u -smp 5 -m 256M -nographic -bios none -no-reboot \
+              $(QEMU_TIMING) $(QEMU_EXTRA)
+QEMU_FLAGS := $(QEMU_BASE) -kernel $(ELF)
 
-.PHONY: all run test debug gdb dtb disasm size clean
+.PHONY: all run test debug gdb dtb disasm size clean probe
 all: $(ELF) size
 
 $(ELF): $(OBJS) fw/linker.ld
@@ -62,7 +64,24 @@ $(BUILD)/%.o: fw/src/%.c
 	@mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
 
--include $(OBJS:.o=.d)
+# The counter probe is its own image: it shares boot and console code with the firmware,
+# but brings its own hart0_main, hart_main and trap_handler.
+PROBE_ELF  := $(BUILD)/probe.elf
+PROBE_OBJS := $(BUILD)/boot.o $(BUILD)/kprintf.o $(BUILD)/power.o $(BUILD)/uart.o \
+              $(BUILD)/probe_main.o $(BUILD)/probe_workloads.o
+
+$(PROBE_ELF): $(PROBE_OBJS) fw/linker.ld
+	$(CC) $(LDFLAGS) $(PROBE_OBJS) -lgcc -o $@
+
+$(BUILD)/probe_main.o: fw/probe/probe.c
+	@mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
+
+$(BUILD)/probe_workloads.o: fw/probe/workloads.S
+	@mkdir -p $(BUILD)
+	$(CC) $(ASFLAGS) -c $< -o $@
+
+-include $(OBJS:.o=.d) $(BUILD)/probe_main.d
 
 size: $(ELF)
 	@$(SIZE) $(ELF)
@@ -72,6 +91,9 @@ run: $(ELF)
 
 test: $(ELF)
 	@scripts/run_test.sh $(ELF) "$(QEMU) $(QEMU_FLAGS)"
+
+probe: $(PROBE_ELF)
+	@EXPECT="PROBE DONE" TEST_TIMEOUT=120 scripts/run_test.sh $(PROBE_ELF) "$(QEMU) $(QEMU_BASE) -kernel $(PROBE_ELF)"
 
 debug: $(ELF)
 	@echo ">>> QEMU is paused. In another terminal run:  make gdb"
