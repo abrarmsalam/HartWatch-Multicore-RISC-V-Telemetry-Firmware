@@ -122,8 +122,13 @@ host-test:
 	@mkdir -p $(BUILD)
 	@$(HOSTCC) $(HOST_FLAGS) -DSAMPLE_CHECKSUM=1 $(HOST_SRCS) -o $(BUILD)/test_sample
 	@$(HOSTCC) $(HOST_FLAGS) -DSAMPLE_CHECKSUM=0 $(HOST_SRCS) -o $(BUILD)/test_sample_nochk
+	@$(HOSTCC) $(HOST_FLAGS) fw/tests/test_ring.c -o $(BUILD)/test_ring
 	@$(BUILD)/test_sample
 	@$(BUILD)/test_sample_nochk
+	@$(BUILD)/test_ring
+	@$(HOSTCC) -std=gnu11 -O1 -g -Wall -Wextra -Werror -fsanitize=thread -pthread -Ifw/src \
+	    fw/tests/test_ring_tsan.c fw/src/sample.c -o $(BUILD)/test_ring_tsan
+	@$(BUILD)/test_ring_tsan 2000000 64
 
 test: host-test $(ELF)
 	@TEST_TIMEOUT=$(TEST_TIMEOUT) scripts/run_test.sh $(ELF) "$(QEMU) $(QEMU_FLAGS)"

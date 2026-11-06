@@ -4,6 +4,7 @@
  * place libc is allowed: none of it reaches the firmware.
  */
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "sampler.h"
 
@@ -164,73 +165,53 @@ static void test_check_next_rejects_bad_stream(void)
     CHECK(sample_check_next(&a, &back, 2) == SAMPLE_ERR_MINSTRET);
 }
 
-static void test_log_stores_in_order(void)
+static ring_t *make_ring(uint64_t capacity)
 {
-    sample_t slots[4];
-    sample_log_t log;
-    sample_log_init(&log, 3, slots, 4);
-
-    for (uint64_t i = 0; i < 4; i++)
-        sample_log_record(&log, &SNAP, 100 + i, 0x80000000 + i);
-
-    CHECK(log.count == 4);
-    CHECK(log.dropped == 0);
-    for (uint32_t i = 0; i < 4; i++) {
-        CHECK(slots[i].seq == i);
-        CHECK(slots[i].hart == 3);
-        CHECK(slots[i].mtime == 100 + i);
-        CHECK(slots[i].mepc == 0x80000000 + i);
-    }
-}
-
-static void test_log_drops_when_full_and_keeps_old_records(void)
-{
-    sample_t slots[3];      /* slots[2] is a canary: the log only gets 2 */
-    sample_log_t log;
-    memset(slots, 0xA5, sizeof(slots));
-    sample_log_init(&log, 1, slots, 2);
-
-    for (uint64_t i = 0; i < 5; i++)
-        sample_log_record(&log, &SNAP, 100 + i, 0);
-
-    sample_t canary;
-    memset(&canary, 0xA5, sizeof(canary));
-
-    CHECK(log.count == 2);
-    CHECK(log.dropped == 3);
-    CHECK(log.next_seq == 5);           /* dropped samples still used a seq number */
-    CHECK(slots[0].mtime == 100);
-    CHECK(slots[1].mtime == 101);       /* drop-on-full: old data is never overwritten */
-    CHECK(memcmp(&slots[2], &canary, sizeof(canary)) == 0);
-}
-
-static void test_log_zero_capacity_only_drops(void)
-{
-    sample_log_t log;
-    sample_log_init(&log, 1, NULL, 0);
-    sample_log_record(&log, &SNAP, 1, 2);
-    CHECK(log.count == 0);
-    CHECK(log.dropped == 1);
+    ring_t *r = aligned_alloc(64, RING_BYTES(capacity));
+    ring_init(r, capacity);
+    return r;
 }
 
 static void test_tick_uses_backend_and_the_right_hart(void)
 {
-    static sample_t a[2], b[2];
+    ring_t *a = make_ring(2), *b = make_ring(2);
 
     g_fake_snapshots = 0;
-    sampler_init(1, a, 2);
-    sampler_init(2, b, 2);
+    sampler_init(1, a);
+    sampler_init(2, b);
     sampler_tick(1, 500, 0x80000010);
     sampler_tick(2, 600, 0x80000020);
     sampler_tick(1, 700, 0x80000030);
 
     CHECK(g_fake_snapshots == 3);
-    CHECK(sampler_log(1)->count == 2);
-    CHECK(sampler_log(2)->count == 1);
-    CHECK(a[0].mcycle == 1000 && a[0].hpm[2] == 7 && a[0].mtime == 500);
-    CHECK(b[0].mcycle == 2000 && b[0].hart == 2 && b[0].mepc == 0x80000020);
-    CHECK(a[1].minstret == 2700 && a[1].seq == 1);
-    CHECK(sample_check_next(&a[0], &a[1], 1) == 0);
+    CHECK(ring_occupancy(a) == 2);
+    CHECK(ring_occupancy(b) == 1);
+    CHECK(a->slots[0].mcycle == 1000 && a->slots[0].hpm[2] == 7 && a->slots[0].mtime == 500);
+    CHECK(b->slots[0].mcycle == 2000 && b->slots[0].hart == 2 && b->slots[0].mepc == 0x80000020);
+    CHECK(a->slots[1].minstret == 2700 && a->slots[1].seq == 1);
+    CHECK(sample_check_next(&a->slots[0], &a->slots[1], 1) == 0);
+    free(a);
+    free(b);
+}
+
+static void test_tick_when_full_counts_a_drop_and_skips_the_snapshot(void)
+{
+    ring_t *r = make_ring(1);
+
+    g_fake_snapshots = 0;
+    sampler_init(1, r);
+    sampler_tick(1, 100, 0);
+    sampler_tick(1, 200, 0);
+    sampler_tick(1, 300, 0);
+
+    CHECK(g_fake_snapshots == 1);
+    CHECK(ring_dropped(r) == 2);
+    CHECK(sampler_attempts(1) == 3);        /* dropped samples still used a seq number */
+    CHECK(r->slots[0].mtime == 100);
+    ring_consume(r);
+    sampler_tick(1, 400, 0);
+    CHECK(r->slots[0].seq == 3);            /* the gap in seq shows the 2 drops */
+    free(r);
 }
 
 #define RUN(t) do { printf("  %s\n", #t); t(); } while (0)
@@ -249,10 +230,8 @@ int main(void)
 #endif
     RUN(test_check_next_accepts_good_stream);
     RUN(test_check_next_rejects_bad_stream);
-    RUN(test_log_stores_in_order);
-    RUN(test_log_drops_when_full_and_keeps_old_records);
-    RUN(test_log_zero_capacity_only_drops);
     RUN(test_tick_uses_backend_and_the_right_hart);
+    RUN(test_tick_when_full_counts_a_drop_and_skips_the_snapshot);
     printf("%d checks, %d failed\n", g_checks, g_failures);
     return g_failures != 0;
 }

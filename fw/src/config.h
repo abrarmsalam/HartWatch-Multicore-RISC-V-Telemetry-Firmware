@@ -36,7 +36,9 @@
 #define SAMPLE_CHECKSUM  1
 #endif
 
-/* Per-U54 sample storage in L2-LIM: 4096 slots x 64 bytes = 256 KiB per hart. */
-#define SAMPLE_SLOTS     4096
+/* One ring per U54 in L2-LIM. Must be a power of two. 4096 slots x 64 bytes = 256 KiB per hart. */
+#ifndef RING_SLOTS
+#define RING_SLOTS       4096
+#endif
 
 #endif

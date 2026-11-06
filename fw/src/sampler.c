@@ -1,46 +1,33 @@
 /*
- * sampler.c -- turn a timer tick into a stored record.
+ * sampler.c -- turn a timer tick into a record in the hart's ring.
  */
 #include "sampler.h"
 
-static sample_log_t g_log[NUM_HARTS];
+static struct {
+    ring_t *ring;
+    uint32_t next_seq;      /* advances on every attempt, so a gap in seq shows a drop */
+} __attribute__((aligned(64))) g_sampler[NUM_HARTS];
 
-void sample_log_init(sample_log_t *log, uint8_t hart, sample_t *slots, uint32_t capacity)
+void sampler_init(unsigned hart, ring_t *ring)
 {
-    log->slots = slots;
-    log->capacity = capacity;
-    log->count = 0;
-    log->next_seq = 0;
-    log->hart = hart;
-    log->dropped = 0;
-}
-
-void sample_log_record(sample_log_t *log, const hpm_snapshot_t *snap, uint64_t mtime, uint64_t mepc)
-{
-    uint32_t seq = log->next_seq++;
-
-    if (log->count == log->capacity) {
-        log->dropped++;
-        return;
-    }
-    sample_fill(&log->slots[log->count], seq, log->hart, snap, mtime, mepc);
-    log->count++;
-}
-
-void sampler_init(unsigned hart, sample_t *slots, uint32_t capacity)
-{
-    sample_log_init(&g_log[hart], (uint8_t)hart, slots, capacity);
+    g_sampler[hart].ring = ring;
+    g_sampler[hart].next_seq = 0;
 }
 
 void sampler_tick(unsigned hart, uint64_t mtime, uint64_t mepc)
 {
+    uint32_t seq = g_sampler[hart].next_seq++;
+    sample_t *slot = ring_reserve(g_sampler[hart].ring);
     hpm_snapshot_t snap;
 
+    if (!slot)
+        return;             /* full: never block. ring_reserve counted the drop. */
     hpm_snapshot(&snap);
-    sample_log_record(&g_log[hart], &snap, mtime, mepc);
+    sample_fill(slot, seq, (uint8_t)hart, &snap, mtime, mepc);
+    ring_commit(g_sampler[hart].ring);
 }
 
-const sample_log_t *sampler_log(unsigned hart)
+uint32_t sampler_attempts(unsigned hart)
 {
-    return &g_log[hart];
+    return g_sampler[hart].next_seq;
 }

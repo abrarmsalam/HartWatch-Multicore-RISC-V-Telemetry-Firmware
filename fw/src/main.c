@@ -72,9 +72,10 @@ static const struct {
     [4] = { "store",  run_store,  (void (*)(void))wl_store,  wl_store_end },
 };
 
-static sample_t *hart_slots(unsigned hart)
+/* Each U54's ring in L2-LIM. L2-LIM is not cleared at boot, so hart 0 initialises them. */
+static ring_t *hart_ring(unsigned hart)
 {
-    return (sample_t *)(L2LIM_BASE + (uintptr_t)(hart - FIRST_APP_HART) * SAMPLE_SLOTS * sizeof(sample_t));
+    return (ring_t *)(L2LIM_BASE + (uintptr_t)(hart - FIRST_APP_HART) * RING_BYTES(RING_SLOTS));
 }
 
 typedef struct {
@@ -84,33 +85,35 @@ typedef struct {
 /* Validate every record one hart wrote. Returns the number of problems found. */
 static unsigned check_samples(unsigned hart, miss_counts_t *misses)
 {
-    const sample_log_t *log = sampler_log(hart);
-    const sample_t *slots = hart_slots(hart);
-    const sample_t *prev = 0;
+    ring_t *ring = hart_ring(hart);
+    sample_t first = { 0 }, prev = { 0 };
+    const sample_t *s;
     uintptr_t start = (uintptr_t)hart_workload[hart].start;
     uintptr_t end = (uintptr_t)hart_workload[hart].end;
-    unsigned bad = 0, in_workload = 0;
+    unsigned bad = 0, in_workload = 0, count = 0;
 
-    for (uint32_t i = 0; i < log->count; i++) {
-        if (sample_check_next(prev, &slots[i], (uint8_t)hart))
+    while ((s = ring_peek(ring))) {
+        if (sample_check_next(count ? &prev : 0, s, (uint8_t)hart))
             bad++;
-        if (slots[i].mepc >= start && slots[i].mepc < end)
+        if (s->mepc >= start && s->mepc < end)
             in_workload++;
-        prev = &slots[i];
+        prev = *s;
+        if (count++ == 0)
+            first = *s;
+        ring_consume(ring);
     }
 
-    const sample_t *first = &slots[0], *last = &slots[log->count - 1];
-    misses->dtlb_read = last->hpm[0] - first->hpm[0];
-    misses->dtlb_write = last->hpm[1] - first->hpm[1];
-    misses->itlb = last->hpm[2] - first->hpm[2];
+    misses->dtlb_read = prev.hpm[0] - first.hpm[0];
+    misses->dtlb_write = prev.hpm[1] - first.hpm[1];
+    misses->itlb = prev.hpm[2] - first.hpm[2];
 
     kprintf(" %4u %8s %7u %5lu %4u %10u %9lu %10lu %5lu\n", hart, hart_workload[hart].name,
-            log->count, log->dropped, bad, in_workload,
+            count, ring_dropped(ring), bad, in_workload,
             misses->dtlb_read, misses->dtlb_write, misses->itlb);
 
-    if (log->count != TEST_TICKS || log->dropped != 0)
+    if (count != TEST_TICKS || ring_dropped(ring) != 0)
         bad++;
-    if (in_workload < log->count * 9 / 10)  /* nearly all time is spent inside the loop */
+    if (in_workload < count * 9 / 10)       /* nearly all time is spent inside the loop */
         bad++;
     return bad;
 }
@@ -132,6 +135,8 @@ void hart0_main(uint64_t hartid)
     timer_start(0, 10000, 0);
 
     /* ---- Step 2: wake the application cores ------------------------------------ */
+    for (unsigned h = FIRST_APP_HART; h < NUM_HARTS; h++)
+        ring_init(hart_ring(h), RING_SLOTS);
     __asm__ volatile("fence" ::: "memory");     /* publish our writes before the poke */
     for (unsigned h = FIRST_APP_HART; h < NUM_HARTS; h++)
         CLINT_MSIP(h) = 1;
@@ -194,7 +199,7 @@ void hart_main(uint64_t hartid)
 
     me->misa = csr_read(misa);
     hpm_init();
-    sampler_init((unsigned)hartid, hart_slots((unsigned)hartid), SAMPLE_SLOTS);
+    sampler_init((unsigned)hartid, hart_ring((unsigned)hartid));
     __atomic_store_n(&me->online, 1, __ATOMIC_RELEASE);
 
     /* Step 3: run a fixed number of 1 kHz timer interrupts, then stop. The interrupt
