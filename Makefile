@@ -154,7 +154,7 @@ HOST_FLAGS := -std=gnu11 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefin
               -fno-sanitize-recover=all -Ifw/src
 HOST_SRCS  := fw/tests/test_sample.c fw/tests/hpm_fake.c fw/src/sample.c fw/src/sampler.c
 
-host-test:
+host-test: $(ELF)
 	@mkdir -p $(BUILD)
 	@$(HOSTCC) $(HOST_FLAGS) -DSAMPLE_CHECKSUM=1 $(HOST_SRCS) -o $(BUILD)/test_sample
 	@$(HOSTCC) $(HOST_FLAGS) -DSAMPLE_CHECKSUM=0 $(HOST_SRCS) -o $(BUILD)/test_sample_nochk
@@ -166,7 +166,7 @@ host-test:
 	@$(BUILD)/test_ring
 	@$(BUILD)/test_wire
 	@$(BUILD)/gen_vectors $(BUILD)/wire_vectors.bin $(BUILD)/wire_vectors.txt
-	@HW_BUILD=$(BUILD) python3 -m pytest -q -p no:cacheprovider host
+	@HW_BUILD=$(BUILD) python3 -m pytest -q -p no:cacheprovider --ignore=host/test_db.py host
 	@$(HOSTCC) -std=gnu11 -O1 -g -Wall -Wextra -Werror -fsanitize=thread -pthread -Ifw/src \
 	    fw/tests/test_ring_tsan.c fw/src/sample.c -o $(BUILD)/test_ring_tsan
 	@$(BUILD)/test_ring_tsan 2000000 64

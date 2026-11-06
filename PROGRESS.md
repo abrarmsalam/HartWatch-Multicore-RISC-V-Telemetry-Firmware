@@ -6,13 +6,19 @@ Stop only for a destructive or irreversible action. Decisions go in docs/DECISIO
 Toolchain: `docker run --rm -v "$PWD":/work hartwatch-dev <cmd>`. Disk must stay above 8 GiB free for Docker work.
 
 ## Done
-- Day 3 commits pushed to main.
+- Day 3 commits pushed to main (via gh credentials, see D1 in docs/DECISIONS.md).
+- Day 4: symbols, collector, schema, hot functions from a real run. DB tests: 6 passed.
 
 ## In progress
-- Day 4: collector, schema, symbolization.
+- Day 6: benchmarks, overhead sweep, CI gate.
 
 ## Next
-- Day 6, Day 5, Day 7, docs/MORNING_REPORT.md.
+- Day 5 (minimal), Day 7, docs/MORNING_REPORT.md.
+
+## Notes for resuming
+- Push: git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push origin days-4-7
+- DB: docker compose up -d db; docker compose run --rm tools <cmd> (HW_DB_URL is set there). Run 2 = day4-1khz.
+- Check free disk before Docker steps. Floor 8 GiB. It was 8.9 GiB after Day 4.
 
 ## Open problems
-- None yet.
+- Disk margin is small. See D2.

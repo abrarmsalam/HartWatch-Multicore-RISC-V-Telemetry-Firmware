@@ -1,0 +1,33 @@
+run 2: 8000 samples, 0 damaged frames
+ hart  samples  percent  function
+    1     1999   99.95%  wl_alu
+    1        1    0.05%  hart_main
+    2     1998   99.90%  wl_branch
+    2        1    0.05%  hart_main
+    2        1    0.05%  run_branch
+    3     1997   99.85%  wl_stride
+    3        2    0.10%  hart_main
+    3        1    0.05%  run_load
+    4     1994   99.70%  wl_store
+    4        3    0.15%  hart_main
+    4        3    0.15%  run_store
+
+busiest lines (run 2, top 3 per hart)
+ hart 1   267 wl_alu workloads.S:28
+ hart 1   265 wl_alu workloads.S:26
+ hart 1   259 wl_alu workloads.S:25
+ hart 2   344 wl_branch workloads.S:61
+ hart 2   327 wl_branch workloads.S:59
+ hart 2   324 wl_branch workloads.S:58
+ hart 3   304 wl_stride workloads.S:80
+ hart 3   300 wl_stride workloads.S:77
+ hart 3   286 wl_stride workloads.S:75
+ hart 4   316 wl_store workloads.S:97
+ hart 4   298 wl_store workloads.S:93
+ hart 4   297 wl_store workloads.S:98
+
+function_time_1s, hart 1 (bucket is virtual seconds since boot on the 1970 epoch)
+  1970-01-01T00:00:00+00:00 1 wl_alu 999
+  1970-01-01T00:00:01+00:00 1 wl_alu 999
+  1970-01-01T00:00:01+00:00 1 hart_main 1
+  1970-01-01T00:00:02+00:00 1 wl_alu 1

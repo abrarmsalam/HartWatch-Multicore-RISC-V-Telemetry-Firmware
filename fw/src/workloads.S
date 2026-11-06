@@ -15,6 +15,7 @@
 
 /* void wl_alu(uint64_t iters) */
     .globl wl_alu
+    .type wl_alu, @function
 wl_alu:
     li      t0, 1
     li      t1, 3
@@ -27,6 +28,7 @@ wl_alu:
     addi    a0, a0, -1
     bnez    a0, 1b
     ret
+    .size wl_alu, . - wl_alu
     .globl wl_alu_end
 wl_alu_end:
 
@@ -43,6 +45,7 @@ wl_alu_end:
 
 /* void wl_branch(uint64_t iters) -- xorshift64 picks each branch's direction. */
     .globl wl_branch
+    .type wl_branch, @function
 wl_branch:
     li      t0, 0x2545F491
     li      t2, 0
@@ -59,11 +62,13 @@ wl_branch:
     addi    a0, a0, -1
     bnez    a0, 1b
     ret
+    .size wl_branch, . - wl_branch
     .globl wl_branch_end
 wl_branch_end:
 
 /* void wl_stride(uint64_t iters, uintptr_t base, uint64_t stride, uint64_t size_mask) */
     .globl wl_stride
+    .type wl_stride, @function
 wl_stride:
     li      t0, 0
     li      t3, 0
@@ -75,11 +80,13 @@ wl_stride:
     addi    a0, a0, -1
     bnez    a0, 1b
     ret
+    .size wl_stride, . - wl_stride
     .globl wl_stride_end
 wl_stride_end:
 
 /* void wl_store(uint64_t iters, uintptr_t base, uint64_t stride, uint64_t size_mask) */
     .globl wl_store
+    .type wl_store, @function
 wl_store:
     li      t0, 0
     li      t3, 0
@@ -91,5 +98,6 @@ wl_store:
     addi    a0, a0, -1
     bnez    a0, 1b
     ret
+    .size wl_store, . - wl_store
     .globl wl_store_end
 wl_store_end:

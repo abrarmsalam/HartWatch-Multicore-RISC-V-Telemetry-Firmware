@@ -1,0 +1,38 @@
+# Local development stack. Credentials are for this machine only: the project has no
+# authentication by design, so the database listens on localhost and nowhere else.
+services:
+  db:
+    image: timescale/timescaledb:2.17.2-pg16
+    environment:
+      POSTGRES_USER: hartwatch
+      POSTGRES_PASSWORD: hartwatch
+      POSTGRES_DB: hartwatch
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - hartwatch-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hartwatch"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # One-off commands that need the toolchain and the database:
+  #   docker compose run --rm tools python3 host/collector.py ...
+  tools:
+    image: hartwatch-dev
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    profiles: ["tools"]
+    working_dir: /work
+    volumes:
+      - .:/work
+    environment:
+      HW_DB_URL: postgresql://hartwatch:hartwatch@db:5432/hartwatch
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  hartwatch-db:

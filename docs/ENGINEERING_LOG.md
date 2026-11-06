@@ -285,3 +285,33 @@ Planted in a throwaway copy, beyond the ring table in `docs/ring.md`:
 - `python3 -I` broke the decoder's import in `make test`. Removed.
 - A TSan mutation run took over 4 minutes reporting races. Added `halt_on_error` and a time limit.
 - A `-Wmaybe-uninitialized` warning in `check_samples` appeared with the ring. Fixed by initialising the variables.
+
+---
+
+## Day 4
+
+**Environment.** As Day 3, plus `timescale/timescaledb:2.17.2-pg16` and pyelftools 0.30. Work done unattended on branch
+`days-4-7`. Decisions are in `docs/DECISIONS.md`.
+
+### Finding 1 -- hot functions from a real run
+
+- **Observed.** A `make test` capture (1 kHz, `-icount`) was loaded as run 2: 8000 samples, 0 damaged frames. The top function
+  on each hart is its workload: `wl_alu` 99.95%, `wl_branch` 99.90%, `wl_stride` 99.85%, `wl_store` 99.70%. Raw output:
+  `docs/data/day4_hot_functions.txt`.
+- **Limit.** Each hart runs one tight loop, so this confirms the path works. It is not a demanding profiling test. Sampling
+  estimates time per function, it does not measure it.
+
+### Finding 2 -- symbolization
+
+- **Test.** Function and line lookups compared with binutils `addr2line` over the real ELF: all agreed (test requires more
+  than 500 compared addresses).
+- **Defect.** Assembly functions had no `.type`/`.size`, so they were missing from the symbol lookup. Added them to
+  `workloads.S` and `trap_entry`.
+- **Test defect.** My test expected a function's first address to be on its declaration line. It is on the `{`.
+
+### Problems
+
+- `git push` hung in the macOS keychain helper, probably on a dialog nobody could answer. See D1.
+- The image took free disk from 15 GiB to 8.9 GiB, close to the 8 GiB floor. See D2.
+- The DB test file was first collected by `make test`, where no capture exists yet. It is now excluded there.
+

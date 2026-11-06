@@ -7,4 +7,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         gcc-riscv64-unknown-elf binutils-riscv64-unknown-elf \
         qemu-system-misc gdb-multiarch device-tree-compiler \
     && rm -rf /var/lib/apt/lists/*
+# Host-side tools, in their own layer so the toolchain layer above stays cached.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        python3-pyelftools python3-psycopg2 python3-fastapi python3-uvicorn python3-httpx \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /work

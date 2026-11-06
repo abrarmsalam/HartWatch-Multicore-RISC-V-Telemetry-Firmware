@@ -81,6 +81,7 @@ park:                                   # dead end: sleep forever
     .section .text
     .balign 4                           # mtvec (direct mode) needs a 4-byte aligned target
     .globl trap_entry
+    .type trap_entry, @function
 trap_entry:
     addi    sp, sp, -128
     sd      ra,    0(sp)
@@ -123,6 +124,7 @@ trap_entry:
     ld      t6,  120(sp)
     addi    sp, sp, 128
     mret                                # return to the interrupted code (pc <- mepc)
+    .size trap_entry, . - trap_entry
 
 /*
  * Stacks live in their own NOBITS section so they take no space in the ELF file and
