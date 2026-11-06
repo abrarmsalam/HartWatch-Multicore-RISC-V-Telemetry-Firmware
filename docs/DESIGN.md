@@ -59,7 +59,7 @@ memory of the FU540 manual suggests, to be verified.
 | `mcountinhibit` | Traps as illegal | Not measured |
 | Caches | Not modelled | Real, and affect timing |
 | UART baud rate | Divisor is not implemented, per the note in `uart.c`; not measured here | Must be programmed; 115200 baud carries 11.52 KB/s |
-| L2-LIM | 1 MiB of it written and read back correctly | Size and behaviour not measured |
+| L2-LIM | 512,000 bytes written and read back correctly (1 MiB reserved) | Size and behaviour not measured |
 
 ## Porting notes
 
